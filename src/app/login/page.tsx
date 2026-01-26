@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { createClient } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Mail, Lock } from 'lucide-react';
+import { ArrowLeft, Loader2, Mail, Lock, User } from 'lucide-react';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -13,6 +13,10 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
+
+    // 1. O ESTADO QUE FALTAVA (Role)
+    const [role, setRole] = useState<'coach' | 'player'>('coach');
+
     const [loading, setLoading] = useState(false);
     const [isSignUp, setIsSignUp] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -33,6 +37,7 @@ export default function LoginPage() {
                     options: {
                         data: {
                             full_name: fullName,
+                            role: role, // <--- 2. GUARDAR A ROLE NA BASE DE DADOS
                         },
                     },
                 });
@@ -45,7 +50,6 @@ export default function LoginPage() {
                     password,
                 });
                 if (error) throw error;
-                // CORREÇÃO AQUI: Redireciona para o DASHBOARD, não para a Home
                 router.push('/dashboard');
                 router.refresh();
             }
@@ -70,7 +74,7 @@ export default function LoginPage() {
                         {isSignUp ? 'Criar Conta' : 'Bem-vindo'}
                     </h1>
                     <p className="text-slate-400">
-                        {isSignUp ? 'Junta-te à elite dos treinadores.' : 'Entra para gerir as tuas táticas.'}
+                        {isSignUp ? 'Junta-te à elite do Padel.' : 'Entra para gerir os teus treinos.'}
                     </p>
                 </div>
 
@@ -88,22 +92,56 @@ export default function LoginPage() {
                 <form onSubmit={handleAuth} className="space-y-4">
 
                     {isSignUp && (
-                        <div>
-                            <label className="block text-slate-400 text-sm mb-1 ml-1">Nome Completo</label>
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    placeholder="Ex: Treinador Nuno"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 pl-10 text-white focus:outline-none focus:border-green-500 transition"
-                                    required
-                                />
-                                <div className="absolute left-3 top-3.5 text-slate-500">
-                                    <Mail size={18} className="opacity-0" />
+                        <>
+                            {/* 3. SELETOR VISUAL DE ROLE (TREINADOR vs JOGADOR) */}
+                            <div className="mb-4">
+                                <label className="block text-slate-400 text-sm mb-2 ml-1">Eu sou...</label>
+                                <div className="flex gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setRole('coach')}
+                                        className={`flex-1 py-3 px-2 rounded-xl border font-bold transition flex flex-col items-center gap-1 ${
+                                            role === 'coach'
+                                                ? 'bg-green-500 text-slate-900 border-green-500 shadow-lg shadow-green-500/20'
+                                                : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'
+                                        }`}
+                                    >
+                                        <span className="text-lg">📋</span>
+                                        <span className="text-sm">Treinador</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setRole('player')}
+                                        className={`flex-1 py-3 px-2 rounded-xl border font-bold transition flex flex-col items-center gap-1 ${
+                                            role === 'player'
+                                                ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20'
+                                                : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'
+                                        }`}
+                                    >
+                                        <span className="text-lg">🎾</span>
+                                        <span className="text-sm">Jogador</span>
+                                    </button>
                                 </div>
                             </div>
-                        </div>
+
+                            <div>
+                                <label className="block text-slate-400 text-sm mb-1 ml-1">Nome Completo</label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Ex: João Silva"
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 pl-10 text-white focus:outline-none focus:border-green-500 transition"
+                                        required
+                                    />
+                                    <div className="absolute left-3 top-3.5 text-slate-500">
+                                        <User size={18} />
+                                    </div>
+                                </div>
+                            </div>
+                        </>
                     )}
 
                     <div>
@@ -143,9 +181,9 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 bg-green-500 hover:bg-green-400 text-slate-900 font-bold rounded-lg transition flex justify-center items-center gap-2 mt-6"
+                        className="w-full py-3 bg-green-500 hover:bg-green-400 text-slate-900 font-bold rounded-lg transition flex justify-center items-center gap-2 mt-6 shadow-lg shadow-green-500/20"
                     >
-                        {loading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta Grátis' : 'Entrar')}
+                        {loading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta' : 'Entrar')}
                     </button>
                 </form>
 
