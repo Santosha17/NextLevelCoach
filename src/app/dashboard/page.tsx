@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Trash2, Plus, Layout, Calendar, Search, Filter } from 'lucide-react';
+import { Trash2, Plus, Layout, Calendar, Search, Filter, User } from 'lucide-react'; // <--- Adicionei 'User'
 
 // Categorias disponíveis (iguais ao editor)
 const CATEGORIES = ['Todas', 'Geral', 'Aquecimento', 'Ataque', 'Defesa', 'Saída de Parede', 'Volei', 'Bandeja/Víbora', 'Jogo de Pés'];
@@ -51,11 +51,9 @@ export default function Dashboard() {
         const { error } = await supabase.from('drills').delete().eq('id', id);
 
         if (error) {
-            // Se der erro (ex: permissões), avisa o utilizador
             console.error('Erro ao apagar:', error);
             alert('Erro ao apagar: ' + error.message);
         } else {
-            // Se correu bem, remove da lista visualmente
             setDrills(drills.filter(drill => drill.id !== id));
         }
     };
@@ -83,10 +81,27 @@ export default function Dashboard() {
         <div className="min-h-screen bg-slate-900 p-6 md:p-10">
             <div className="max-w-6xl mx-auto">
 
-                {/* CABEÇALHO */}
+                {/* CABEÇALHO ATUALIZADO */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-white mb-2">Biblioteca Tática</h1>
+                        <div className="flex items-center gap-3 mb-2">
+                            <h1 className="text-3xl font-bold text-white">Olá, {user?.user_metadata?.full_name || 'Treinador'}</h1>
+
+                            {/* --- NOVO: Link para o Perfil --- */}
+                            <Link href="/dashboard/profile">
+                                <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full border border-slate-700 text-slate-400 hover:text-white transition" title="Editar Perfil">
+                                    <User size={18} />
+                                </button>
+                            </Link>
+
+                            {/* Badge de Treinador */}
+                            {user?.user_metadata?.role === 'coach' && (
+                                <div className="px-2 py-0.5 rounded bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-bold uppercase tracking-wide flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                    Licença FPP: {user?.user_metadata?.license_number}
+                                </div>
+                            )}
+                        </div>
                         <p className="text-slate-400">
                             Tens <span className="text-white font-bold">{drills.length}</span> exercícios criados.
                         </p>
@@ -149,8 +164,8 @@ export default function Dashboard() {
                                     <div className="flex justify-between items-start mb-3">
                                         {/* ETIQUETA DA CATEGORIA */}
                                         <span className={`px-2 py-1 rounded text-xs font-bold border ${getCategoryColor(drill.category || 'Geral')}`}>
-                      {drill.category || 'Geral'}
-                    </span>
+                                            {drill.category || 'Geral'}
+                                        </span>
 
                                         <button onClick={() => deleteDrill(drill.id)} className="text-slate-600 hover:text-red-400 transition p-1 opacity-0 group-hover:opacity-100">
                                             <Trash2 size={18} />
