@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers } from 'lucide-react'; // <--- Adicionei Layers
+import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, LayoutDashboard, Image as ImageIcon } from 'lucide-react';
 
 const CATEGORIES = ['Todas', 'Geral', 'Aquecimento', 'Ataque', 'Defesa', 'Saída de Parede', 'Volei', 'Bandeja/Víbora', 'Jogo de Pés'];
 
@@ -15,8 +15,6 @@ export default function Dashboard() {
     const [drills, setDrills] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
-
-    // Novo estado para saber se é Admin
     const [isAdmin, setIsAdmin] = useState(false);
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -31,18 +29,11 @@ export default function Dashboard() {
             }
             setUser(user);
 
-            // 1. Verificar se é Admin
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('is_admin')
-                .eq('id', user.id)
-                .single();
+            // 1. Verificar Admin
+            const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
+            if (profile && profile.is_admin) setIsAdmin(true);
 
-            if (profile && profile.is_admin) {
-                setIsAdmin(true);
-            }
-
-            // 2. Buscar Táticas
+            // 2. Buscar Táticas (Incluindo image_url)
             const { data } = await supabase
                 .from('drills')
                 .select('*')
@@ -52,15 +43,15 @@ export default function Dashboard() {
             if (data) setDrills(data);
             setLoading(false);
         };
-
         getData();
     }, []);
 
-    const deleteDrill = async (id: string) => {
+    const deleteDrill = async (e: any, id: string) => {
+        e.preventDefault(); // Impede que abra a tática ao clicar no lixo
         if (!confirm('Tens a certeza que queres apagar esta tática?')) return;
+
         const { error } = await supabase.from('drills').delete().eq('id', id);
         if (error) {
-            console.error('Erro ao apagar:', error);
             alert('Erro: ' + error.message);
         } else {
             setDrills(drills.filter(drill => drill.id !== id));
@@ -75,10 +66,10 @@ export default function Dashboard() {
 
     const getCategoryColor = (cat: string) => {
         switch(cat) {
-            case 'Ataque': return 'bg-red-500/20 text-red-400 border-red-500/30';
-            case 'Defesa': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-            case 'Aquecimento': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-            default: return 'bg-slate-700 text-slate-300 border-slate-600';
+            case 'Ataque': return 'bg-red-500/90 text-white border-red-500'; // Cores mais sólidas para o badge sobre a imagem
+            case 'Defesa': return 'bg-blue-500/90 text-white border-blue-500';
+            case 'Aquecimento': return 'bg-yellow-500/90 text-slate-900 border-yellow-500';
+            default: return 'bg-slate-700/90 text-white border-slate-600';
         }
     };
 
@@ -93,68 +84,43 @@ export default function Dashboard() {
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <h1 className="text-3xl font-bold text-white">Olá, {user?.user_metadata?.full_name || 'Treinador'}</h1>
-
-                            {/* Link Perfil */}
                             <Link href="/dashboard/perfil">
                                 <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full border border-slate-700 text-slate-400 hover:text-white transition" title="Editar Perfil">
                                     <User size={18} />
                                 </button>
                             </Link>
-
-                            {/* --- BOTÃO ADMIN (Só aparece se for Admin) --- */}
                             {isAdmin && (
                                 <Link href="/admin">
                                     <button className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-full text-xs font-bold uppercase tracking-wider transition">
-                                        <Shield size={14} />
-                                        <span>Backoffice</span>
+                                        <Shield size={14} /> Backoffice
                                     </button>
                                 </Link>
                             )}
-
-                            {/* Badge de Licença (Coach) */}
-                            {user?.user_metadata?.role === 'coach' && (
-                                <div className="px-2 py-0.5 rounded bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-bold uppercase tracking-wide flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                                    Licença: {user?.user_metadata?.license_number}
-                                </div>
-                            )}
                         </div>
-                        <p className="text-slate-400">
-                            Tens <span className="text-white font-bold">{drills.length}</span> exercícios criados.
-                        </p>
+                        <p className="text-slate-400">Tens <span className="text-white font-bold">{drills.length}</span> exercícios criados.</p>
                     </div>
 
-                    {/* GRUPO DE BOTÕES DE AÇÃO */}
-                    <div className="flex gap-3">
-
-                        {/* 1. Botão Alunos */}
+                    <div className="flex gap-3 flex-wrap">
                         <Link href="/dashboard/alunos">
                             <button className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition border border-slate-700 shadow-lg">
-                                <Users size={20} className="text-blue-400" />
-                                <span>Alunos</span>
+                                <Users size={20} className="text-blue-400" /> <span className="hidden sm:inline">Alunos</span>
                             </button>
                         </Link>
-
-                        {/* 2. Botão Planos (NOVO) */}
                         <Link href="/dashboard/planos">
                             <button className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition border border-slate-700 shadow-lg">
-                                <Layers size={20} className="text-purple-400" />
-                                <span>Planos</span>
+                                <Layers size={20} className="text-purple-400" /> <span className="hidden sm:inline">Planos</span>
                             </button>
                         </Link>
-
-                        {/* 3. Botão Nova Tática */}
                         <Link href="/dashboard/tatica">
                             <button className="bg-green-500 hover:bg-green-400 text-slate-900 font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition shadow-lg shadow-green-500/20">
-                                <Plus size={20} />
-                                <span>Nova Tática</span>
+                                <Plus size={20} /> <span className="hidden sm:inline">Nova Tática</span>
                             </button>
                         </Link>
                     </div>
                 </div>
 
-                {/* BARRA DE FERRAMENTAS */}
-                <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 mb-8 space-y-4">
+                {/* SEARCH BAR */}
+                <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 mb-8 space-y-4 sticky top-20 z-10 shadow-xl">
                     <div className="relative">
                         <Search className="absolute left-3 top-3 text-slate-500" size={20} />
                         <input
@@ -170,11 +136,7 @@ export default function Dashboard() {
                             <button
                                 key={cat}
                                 onClick={() => setSelectedCategory(cat)}
-                                className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium border transition ${
-                                    selectedCategory === cat
-                                        ? 'bg-green-500 text-slate-900 border-green-500'
-                                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'
-                                }`}
+                                className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border transition ${selectedCategory === cat ? 'bg-green-500 text-slate-900 border-green-500' : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'}`}
                             >
                                 {cat}
                             </button>
@@ -182,7 +144,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* GRELHA */}
+                {/* GRELHA DE TÁTICAS (VISUAL NOVO) */}
                 {filteredDrills.length === 0 ? (
                     <div className="text-center py-20 bg-slate-800/30 rounded-2xl border border-slate-700 border-dashed">
                         <Filter size={48} className="mx-auto text-slate-600 mb-4" />
@@ -190,36 +152,62 @@ export default function Dashboard() {
                         <p className="text-slate-400">Tenta mudar os filtros ou cria uma nova tática.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {filteredDrills.map((drill) => (
-                            <div key={drill.id} className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 hover:border-green-500/50 transition group flex flex-col justify-between hover:shadow-xl hover:shadow-black/50">
-                                <div className="p-5">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold border ${getCategoryColor(drill.category || 'Geral')}`}>
-                                            {drill.category || 'Geral'}
-                                        </span>
-                                        <button onClick={() => deleteDrill(drill.id)} className="text-slate-600 hover:text-red-400 transition p-1 opacity-0 group-hover:opacity-100">
-                                            <Trash2 size={18} />
-                                        </button>
+                            <Link href={`/dashboard/tatica?id=${drill.id}`} key={drill.id}>
+                                <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 hover:border-green-500/50 transition group flex flex-col hover:shadow-2xl hover:shadow-black/50 hover:-translate-y-1 h-full">
+
+                                    {/* 1. THUMBNAIL (A Imagem do Campo) */}
+                                    <div className="relative h-52 w-full bg-slate-900 border-b border-slate-700 group-hover:opacity-90 transition p-2">
+                                        {drill.image_url ? (
+                                            <img
+                                                src={drill.image_url}
+                                                alt={drill.title}
+                                                className="w-full h-full object-contain" // object-contain mostra o campo todo sem cortar
+                                            />
+                                        ) : (
+                                            // Fallback para táticas antigas sem imagem
+                                            <div className="w-full h-full flex flex-col items-center justify-center gap-2 opacity-20">
+                                                <LayoutDashboard size={40} className="text-slate-400" />
+                                                <span className="text-xs text-slate-500">Sem pré-visualização</span>
+                                            </div>
+                                        )}
+
+                                        {/* Badge da Categoria Sobreposta */}
+                                        <div className="absolute top-3 left-3">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border backdrop-blur-md shadow-lg ${getCategoryColor(drill.category || 'Geral')}`}>
+                                                {drill.category || 'Geral'}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <h3 className="text-xl font-bold text-white mb-2 leading-tight">{drill.title}</h3>
-                                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                                        <Calendar size={12} />
-                                        {new Date(drill.created_at).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })}
+
+                                    {/* 2. INFO AREA */}
+                                    <div className="p-4 flex-1 flex flex-col">
+                                        <div className="flex justify-between items-start gap-2 mb-2">
+                                            <h3 className="text-lg font-bold text-white leading-snug line-clamp-2 group-hover:text-green-400 transition-colors">
+                                                {drill.title}
+                                            </h3>
+                                            <button
+                                                onClick={(e) => deleteDrill(e, drill.id)}
+                                                className="text-slate-600 hover:text-red-400 transition p-1 hover:bg-slate-700 rounded"
+                                                title="Apagar Tática"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+
+                                        <div className="mt-auto pt-4 flex justify-between items-center text-xs text-slate-500 border-t border-slate-700/50">
+                                            <div className="flex items-center gap-1.5">
+                                                <Calendar size={12} />
+                                                {new Date(drill.created_at).toLocaleDateString('pt-PT')}
+                                            </div>
+                                            <div className="flex items-center gap-1.5 text-green-500/80 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                                ABRIR <span>→</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="bg-slate-900/50 p-4 border-t border-slate-700 flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                                        <span className="text-xs text-slate-400 font-mono">Pronto</span>
-                                    </div>
-                                    <Link href={`/dashboard/tatica?id=${drill.id}`}>
-                                        <button className="text-sm font-bold text-green-400 hover:text-green-300 flex items-center gap-1">
-                                            Abrir <span className="group-hover:translate-x-1 transition-transform">→</span>
-                                        </button>
-                                    </Link>
-                                </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 )}
