@@ -92,7 +92,7 @@ export default function PlansPage() {
                 }
 
                 // Bloco do Exercício
-                doc.setFillColor(245, 247, 250); // Fundo cinza claro
+                doc.setFillColor(245, 247, 250);
                 doc.roundedRect(15, yPos, pageWidth - 30, 35, 3, 3, 'F');
 
                 doc.setFontSize(12);
