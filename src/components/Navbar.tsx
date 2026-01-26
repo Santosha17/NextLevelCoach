@@ -57,7 +57,6 @@ const Navbar = () => {
             {/* 2. MENU CENTRAL (Só aparece em ecrãs grandes) */}
             <div className="hidden md:flex gap-6 text-slate-400 text-sm font-medium items-center">
                 <Link href="/dashboard" className="hover:text-green-400 transition">Dashboard</Link>
-                {/* CORREÇÃO: Link agora aponta para a página de Planos */}
                 <Link href="/dashboard/planos" className="hover:text-green-400 transition">Planos de Aula</Link>
                 <Link href="/community" className="hover:text-green-400 transition">Comunidade</Link>
             </div>
