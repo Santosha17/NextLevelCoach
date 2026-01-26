@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../lib/supabase';
-import { UserCircle, LogOut, LayoutDashboard } from 'lucide-react';
+import { UserCircle, LogOut } from 'lucide-react';
 
 const Navbar = () => {
     const [user, setUser] = useState<any>(null);
@@ -37,39 +37,45 @@ const Navbar = () => {
     };
 
     return (
-        <nav className="w-full py-4 px-6 flex justify-between items-center bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+        <nav className="w-full py-3 px-6 flex justify-between items-center bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
 
-            {/* 1. LOGO (Clica para ir ao Início) */}
-            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
-                <div className="w-8 h-8 bg-green-500 rounded flex items-center justify-center font-bold text-slate-900">
-                    CNL
-                </div>
-                <span className="text-white font-bold text-lg tracking-wide hidden sm:block">
-          COACH NEXT LEVEL
-        </span>
+            {/* 1. LOGO AUMENTADO (Clica para ir ao Início) */}
+            <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition group">
+                {/* Imagem do Logo - Aumentada para h-14 */}
+                <img
+                    src="/logo.png"
+                    alt="CNL Logo"
+                    className="h-14 w-auto object-contain"
+                />
+
+                {/* Nome por extenso ajustado */}
+                <span className="text-white font-bold text-xl tracking-wider hidden sm:block group-hover:text-green-400 transition-colors">
+                    COACH NEXT LEVEL
+                </span>
             </Link>
 
             {/* 2. MENU CENTRAL (Só aparece em ecrãs grandes) */}
-            <div className="hidden md:flex gap-6 text-slate-400 text-sm font-medium">
+            <div className="hidden md:flex gap-6 text-slate-400 text-sm font-medium items-center">
                 <Link href="/dashboard" className="hover:text-green-400 transition">Dashboard</Link>
-                <Link href="#" className="hover:text-green-400 transition">Planos de Aula</Link>
+                {/* CORREÇÃO: Link agora aponta para a página de Planos */}
+                <Link href="/dashboard/planos" className="hover:text-green-400 transition">Planos de Aula</Link>
                 <Link href="/community" className="hover:text-green-400 transition">Comunidade</Link>
             </div>
 
-            {/* 3. ÁREA DE UTILIZADOR (A Mágica acontece aqui) */}
+            {/* 3. ÁREA DE UTILIZADOR */}
             <div>
                 {user ? (
                     // === ESTADO: LOGADO (Mostra Perfil) ===
                     <div className="flex items-center gap-4">
 
                         {/* Nome do Treinador */}
-                        <div className="flex flex-col items-end mr-2">
-              <span className="text-slate-200 text-sm font-bold">
-                {user.user_metadata?.full_name || 'Treinador'}
-              </span>
+                        <div className="hidden sm:flex flex-col items-end mr-2">
+                            <span className="text-slate-200 text-sm font-bold">
+                                {user.user_metadata?.full_name || 'Treinador'}
+                            </span>
                             <span className="text-green-500 text-[10px] uppercase tracking-wider font-bold">
-                Pro Account
-              </span>
+                                Pro Account
+                            </span>
                         </div>
 
                         {/* Botão Sair */}
