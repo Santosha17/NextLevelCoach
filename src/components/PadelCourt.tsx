@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Rect, Line, Circle, Arrow } from 'react-konva'; // <--- Adicionei Arrow
-import { Undo, Trash2, Download, CloudUpload, Loader2, Check, ChevronDown, FileText, X, Globe, Lock, Copy, PenTool, MoveRight, CircleDashed } from 'lucide-react';
+import { Stage, Layer, Rect, Line, Circle, Arrow } from 'react-konva';
+import { Undo, Trash2, Download, CloudUpload, Loader2, Check, Globe, Lock, Copy, PenTool, MoveRight, CircleDashed, FileText } from 'lucide-react';
 import { createClient } from '@/src/lib/supabase';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 
@@ -23,6 +23,19 @@ const CATEGORIES = [
     'Geral', 'Aquecimento', 'Ataque', 'Defesa', 'Saída de Parede', 'Volei', 'Bandeja/Víbora', 'Jogo de Pés'
 ];
 
+// --- FUNÇÃO AUXILIAR: Converte o Canvas (Base64) em Ficheiro (Blob) ---
+const dataURLToBlob = (dataURL: string) => {
+    const parts = dataURL.split(';base64,');
+    const contentType = parts[0].split(':')[1];
+    const raw = window.atob(parts[1]);
+    const rawLength = raw.length;
+    const uInt8Array = new Uint8Array(rawLength);
+    for (let i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+    }
+    return new Blob([uInt8Array], { type: contentType });
+};
+
 const PadelCourt = () => {
     const width = 360;
     const height = 720;
@@ -39,7 +52,7 @@ const PadelCourt = () => {
 
     // Estados de Desenho
     const [lines, setLines] = useState<LineData[]>([]);
-    const [tool, setTool] = useState('pen'); // <--- 'pen', 'arrow', 'ball'
+    const [tool, setTool] = useState('pen');
     const [color, setColor] = useState('#000000');
 
     // Estados de Controlo
@@ -89,25 +102,56 @@ const PadelCourt = () => {
 
     const isOwner = !drillOwnerId || (currentUser && currentUser.id === drillOwnerId);
 
-    // --- 2. GRAVAR / CLONAR ---
+    // --- 2. GRAVAR (COM UPLOAD DE IMAGEM) ---
     const saveToCloud = async () => {
         if (!isOwner) return;
         if (!tacticName) return alert('Dá um nome à tática.');
 
         setIsSaving(true);
         try {
+            // A. Gerar a Imagem (Thumbnail)
+            let publicImageUrl = null;
+            if (stageRef.current) {
+                // 1. Converter Canvas para Base64
+                const dataUrl = stageRef.current.toDataURL({ pixelRatio: 2 });
+                // 2. Converter para Blob (Ficheiro)
+                const blob = dataURLToBlob(dataUrl);
+                // 3. Criar nome único: userID/timestamp.png
+                const fileName = `${currentUser.id}/${Date.now()}.png`;
+
+                // 4. Enviar para Supabase Storage (Bucket 'tactics')
+                const { error: uploadError } = await supabase.storage
+                    .from('tactics')
+                    .upload(fileName, blob, { upsert: true });
+
+                if (uploadError) throw uploadError;
+
+                // 5. Obter o URL Público
+                const { data: urlData } = supabase.storage
+                    .from('tactics')
+                    .getPublicUrl(fileName);
+
+                publicImageUrl = urlData.publicUrl;
+            }
+
+            // B. Preparar Dados para a Base de Dados
             const canvasData = { lines, players };
             const drillId = searchParams.get('id');
+
             const payload = {
                 title: tacticName,
                 category: category,
                 description: description,
                 is_public: isPublic,
                 author_name: currentUser.user_metadata?.full_name || 'Treinador',
-                canvas_data: canvasData
+                canvas_data: canvasData,
+                image_url: publicImageUrl // <--- Aqui vai o link da imagem!
             };
 
+            // C. Inserir ou Atualizar na Tabela
             if (drillId) {
+                // Se estamos a atualizar, só atualizamos a imagem se tivermos gerado uma nova
+                // (O payload já tem a nova URL, então vai atualizar sempre para a mais recente)
                 const { error } = await supabase.from('drills').update(payload).eq('id', drillId);
                 if (error) throw error;
             } else {
@@ -116,20 +160,37 @@ const PadelCourt = () => {
                 if (data) router.replace(`${pathname}?id=${data.id}`, { scroll: false });
                 setDrillOwnerId(currentUser.id);
             }
+
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 4000);
+
         } catch (error: any) {
-            alert('Erro: ' + error.message);
+            console.error(error);
+            alert('Erro ao gravar: ' + error.message);
         } finally {
             setIsSaving(false);
         }
     };
 
+    // --- CLONAR ---
     const cloneDrill = async () => {
         if (!currentUser) return alert('Login necessário.');
         if (!confirm('Clonar para a tua biblioteca?')) return;
         setIsSaving(true);
         try {
+            // Nota: Ao clonar, mantemos a imagem original ou geramos nova?
+            // Para simplificar, geramos uma nova imagem fresca do estado atual.
+            let publicImageUrl = null;
+            if (stageRef.current) {
+                const dataUrl = stageRef.current.toDataURL({ pixelRatio: 2 });
+                const blob = dataURLToBlob(dataUrl);
+                const fileName = `${currentUser.id}/${Date.now()}.png`;
+
+                await supabase.storage.from('tactics').upload(fileName, blob);
+                const { data: urlData } = supabase.storage.from('tactics').getPublicUrl(fileName);
+                publicImageUrl = urlData.publicUrl;
+            }
+
             const canvasData = { lines, players };
             const payload = {
                 user_id: currentUser.id,
@@ -138,13 +199,15 @@ const PadelCourt = () => {
                 description: description,
                 is_public: false,
                 author_name: currentUser.user_metadata?.full_name || 'Treinador',
-                canvas_data: canvasData
+                canvas_data: canvasData,
+                image_url: publicImageUrl
             };
+
             const { data, error } = await supabase.from('drills').insert(payload).select().single();
             if (error) throw error;
             if (data) {
                 alert('Tática copiada!');
-                router.push(`/dashboard/tatica?id=${data.id}`);
+                router.push(`/dashboard/create?id=${data.id}`); // Assumi que a rota é /create, ajusta se for /tatica
             }
         } catch (error: any) {
             alert('Erro: ' + error.message);
@@ -166,7 +229,7 @@ const PadelCourt = () => {
         }
     };
 
-    // --- 4. LÓGICA DE DESENHO (ATUALIZADA) ---
+    // --- 4. LÓGICA DE DESENHO ---
     const fixBoundary = (pos: any, radius: number) => {
         let x = pos.x; let y = pos.y;
         if (x < radius) x = radius; if (x > width - radius) x = width - radius;
@@ -184,8 +247,6 @@ const PadelCourt = () => {
         if (!isOwner || e.target.attrs.draggable) return;
         isDrawing.current = true;
         const pos = e.target.getStage().getPointerPosition();
-
-        // Inicia a forma com o ponto inicial
         setLines([...lines, { tool: tool, points: [pos.x, pos.y, pos.x, pos.y], color: color }]);
     };
 
@@ -193,22 +254,16 @@ const PadelCourt = () => {
         if (!isDrawing.current) return;
         const stage = e.target.getStage();
         const point = stage.getPointerPosition();
-
         let lastLine = lines[lines.length - 1];
 
         if (lastLine) {
             if (lastLine.tool === 'pen') {
-                // Modo Lápis: Adiciona pontos continuamente (Curva)
                 lastLine.points = lastLine.points.concat([point.x, point.y]);
             } else {
-                // Modo Seta/Bola: Atualiza apenas o ponto final (Reta)
-                // [x1, y1, x2, y2] -> Mantém x1,y1 e muda x2,y2
-                const newPoints = lastLine.points.slice(0, 2); // Pega o início
-                newPoints.push(point.x, point.y); // Adiciona o fim atual
+                const newPoints = lastLine.points.slice(0, 2);
+                newPoints.push(point.x, point.y);
                 lastLine.points = newPoints;
             }
-
-            // Atualiza o estado
             lines.splice(lines.length - 1, 1, lastLine);
             setLines(lines.concat());
         }
@@ -236,28 +291,20 @@ const PadelCourt = () => {
             {saveSuccess && (
                 <div className="fixed bottom-6 right-6 z-50 bg-green-500 text-slate-900 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 animate-[slideIn_0.3s_ease-out] border-2 border-green-400">
                     <div className="bg-white/20 p-2 rounded-full"><Check size={24} className="text-white" /></div>
-                    <div><h4 className="font-bold text-lg leading-none">Guardado!</h4><p className="text-sm font-medium opacity-80 mt-1">Sucesso.</p></div>
+                    <div><h4 className="font-bold text-lg leading-none">Guardado!</h4><p className="text-sm font-medium opacity-80 mt-1">Imagem atualizada.</p></div>
                 </div>
             )}
 
             <div className="flex flex-col lg:flex-row gap-8 py-8 w-full max-w-6xl mx-auto items-start px-4">
-
                 {/* ESQUERDA: CAMPO */}
                 <div className="flex flex-col items-center gap-6 w-full lg:w-auto flex-shrink-0">
                     {isOwner && (
                         <div className="flex flex-col gap-3 w-full max-w-[360px]">
-
-                            {/* LINHA 1: FERRAMENTAS DE DESENHO */}
+                            {/* LINHA 1: FERRAMENTAS */}
                             <div className="flex gap-2 p-2 bg-slate-800 rounded-xl shadow border border-slate-700 justify-center">
-                                <button onClick={() => setTool('pen')} className={`p-2 rounded-lg transition ${tool === 'pen' ? 'bg-green-500 text-slate-900' : 'text-slate-400 hover:text-white'}`} title="Lápis Livre">
-                                    <PenTool size={20} />
-                                </button>
-                                <button onClick={() => setTool('arrow')} className={`p-2 rounded-lg transition ${tool === 'arrow' ? 'bg-green-500 text-slate-900' : 'text-slate-400 hover:text-white'}`} title="Seta (Movimento Jogador)">
-                                    <MoveRight size={20} />
-                                </button>
-                                <button onClick={() => setTool('ball')} className={`p-2 rounded-lg transition ${tool === 'ball' ? 'bg-green-500 text-slate-900' : 'text-slate-400 hover:text-white'}`} title="Bola (Passe)">
-                                    <CircleDashed size={20} />
-                                </button>
+                                <button onClick={() => setTool('pen')} className={`p-2 rounded-lg transition ${tool === 'pen' ? 'bg-green-500 text-slate-900' : 'text-slate-400 hover:text-white'}`} title="Lápis Livre"><PenTool size={20} /></button>
+                                <button onClick={() => setTool('arrow')} className={`p-2 rounded-lg transition ${tool === 'arrow' ? 'bg-green-500 text-slate-900' : 'text-slate-400 hover:text-white'}`} title="Seta"><MoveRight size={20} /></button>
+                                <button onClick={() => setTool('ball')} className={`p-2 rounded-lg transition ${tool === 'ball' ? 'bg-green-500 text-slate-900' : 'text-slate-400 hover:text-white'}`} title="Bola"><CircleDashed size={20} /></button>
                                 <div className="w-px bg-slate-600 mx-2"></div>
                                 <div className="flex gap-2 items-center">
                                     <button onClick={() => setColor('#000000')} className={`w-6 h-6 rounded-full bg-black border-2 ${color === '#000000' ? 'border-white' : 'border-transparent'}`} />
@@ -265,7 +312,6 @@ const PadelCourt = () => {
                                     <button onClick={() => setColor('#3b82f6')} className={`w-6 h-6 rounded-full bg-blue-500 border-2 ${color === '#3b82f6' ? 'border-white' : 'border-transparent'}`} />
                                 </div>
                             </div>
-
                             {/* LINHA 2: AÇÕES */}
                             <div className="flex gap-2 p-2 bg-slate-800 rounded-xl shadow border border-slate-700 justify-center">
                                 <button onClick={undoLast} className="flex-1 text-slate-400 hover:text-white hover:bg-slate-700 py-1 rounded transition flex justify-center"><Undo size={20} /></button>
@@ -291,14 +337,12 @@ const PadelCourt = () => {
                             <Line points={[0, height - 160, width, height - 160]} stroke="white" strokeWidth={2} listening={false} />
                             <Line points={[width / 2, height - 160, width / 2, height / 2]} stroke="white" strokeWidth={2} listening={false} />
 
-                            {/* RENDERIZAÇÃO DAS LINHAS (AGORA COM SETAS E TRACEJADOS) */}
                             {lines.map((line, i) => {
                                 if (line.tool === 'arrow') {
                                     return <Arrow key={i} points={line.points} stroke={line.color} fill={line.color} strokeWidth={3} pointerLength={10} pointerWidth={10} listening={false} />;
                                 } else if (line.tool === 'ball') {
                                     return <Line key={i} points={line.points} stroke={line.color} strokeWidth={3} dash={[8, 8]} lineCap="round" lineJoin="round" listening={false} />;
                                 } else {
-                                    // Pen (Livre)
                                     return <Line key={i} points={line.points} stroke={line.color} strokeWidth={3} tension={0.5} lineCap="round" lineJoin="round" listening={false} />;
                                 }
                             })}
@@ -314,7 +358,7 @@ const PadelCourt = () => {
                     </Stage>
                 </div>
 
-                {/* DIREITA: PAINEL (Mantém-se igual, só encurtei para caber aqui) */}
+                {/* DIREITA: PAINEL */}
                 <div className="flex flex-col gap-6 w-full lg:flex-1 min-w-[350px]">
                     <div className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-2xl h-full relative overflow-hidden">
                         {!isOwner && <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500"></div>}
@@ -335,13 +379,12 @@ const PadelCourt = () => {
                             )}
                         </div>
 
-                        {/* Campos */}
                         <div className="mb-6"><label className="block text-slate-400 text-xs font-bold uppercase mb-2">Nome</label><input type="text" disabled={!isOwner} className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-green-500 outline-none disabled:opacity-50" value={tacticName} onChange={(e) => setTacticName(e.target.value)} /></div>
                         <div className="mb-6"><label className="block text-slate-400 text-xs font-bold uppercase mb-2">Categoria</label><select value={category} onChange={(e) => setCategory(e.target.value)} disabled={!isOwner} className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white disabled:opacity-50"><option>Geral</option>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></div>
                         <div className="mb-8"><label className="block text-slate-400 text-xs font-bold uppercase mb-2">Notas</label><textarea rows={6} disabled={!isOwner} className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white resize-none disabled:opacity-50" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
 
                         {isOwner ? (
-                            <button onClick={saveToCloud} disabled={isSaving} className={`w-full font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition ${saveSuccess ? 'bg-slate-700 text-slate-300' : 'bg-green-500 hover:bg-green-400 text-slate-900'}`}>{isSaving ? <Loader2 className="animate-spin" /> : saveSuccess ? <Check /> : <CloudUpload />}<span>{saveSuccess ? 'Gravado' : 'Gravar Alterações'}</span></button>
+                            <button onClick={saveToCloud} disabled={isSaving} className={`w-full font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition ${saveSuccess ? 'bg-slate-700 text-slate-300' : 'bg-green-500 hover:bg-green-400 text-slate-900'}`}>{isSaving ? <Loader2 className="animate-spin" /> : saveSuccess ? <Check /> : <CloudUpload />}<span>{saveSuccess ? 'Guardado!' : 'Gravar Alterações'}</span></button>
                         ) : (
                             <button onClick={cloneDrill} disabled={isSaving} className="w-full font-bold py-4 rounded-xl flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-500 text-white">{isSaving ? <Loader2 className="animate-spin" /> : <Copy />}<span>Guardar na Minha Biblioteca</span></button>
                         )}

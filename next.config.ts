@@ -1,11 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    output: 'export', // <--- ADICIONA ISTO
+    output: 'export', // Cria a pasta 'out' para o Cloudflare Pages
 
-    // Se usares o componente <Image /> do Next.js, adiciona também isto:
     images: {
+        // Obrigatório para Static Exports (como Cloudflare Pages)
+        // porque não há servidor para otimizar imagens em tempo real.
         unoptimized: true,
+
+        // Permite carregar imagens alojadas no Supabase
+        remotePatterns: [
+            {
+                protocol: 'https',
+                hostname: '**.supabase.co', // O asterisco ** aceita qualquer projeto Supabase
+            },
+        ],
     },
 };
 
