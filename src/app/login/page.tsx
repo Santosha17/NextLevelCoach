@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { createClient } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Lock, Mail, User, Shield, Loader2, ArrowLeft } from 'lucide-react'; // Adicionei ArrowLeft para o botão de voltar
-import Link from 'next/link'; // Import necessário para o Link de voltar
+import { Lock, Mail, User, Shield, Loader2, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 export default function LoginPage() {
     const supabase = createClient();
@@ -18,7 +18,7 @@ export default function LoginPage() {
 
     // Estados Novos para Registo
     const [fullName, setFullName] = useState('');
-    const [role, setRole] = useState<'player' | 'coach'>('player'); // Tipagem forte aqui ajuda
+    const [role, setRole] = useState<'player' | 'coach'>('player');
     const [license, setLicense] = useState('');
 
     const handleAuth = async (e: React.FormEvent) => {
@@ -28,8 +28,6 @@ export default function LoginPage() {
         try {
             if (isSignUp) {
                 // === MODO CRIAR CONTA ===
-
-                // Validação extra para treinadores
                 if (role === 'coach' && !license) {
                     alert('Treinadores certificados têm de inserir o nº de licença FPP.');
                     setLoading(false);
@@ -40,19 +38,18 @@ export default function LoginPage() {
                     email,
                     password,
                     options: {
-                        // Guardamos estes dados extras nos metadados do utilizador
                         data: {
                             full_name: fullName,
                             role: role,
                             license_number: role === 'coach' ? license : null,
-                            verified_coach: false // Começa como falso até um admin validar (futuro)
+                            verified_coach: false
                         }
                     }
                 });
 
                 if (error) throw error;
                 alert('Conta criada com sucesso! Podes entrar.');
-                setIsSignUp(false); // Volta para o login
+                setIsSignUp(false);
 
             } else {
                 // === MODO LOGIN ===
@@ -94,7 +91,6 @@ export default function LoginPage() {
                     {/* Campos Só para Registo */}
                     {isSignUp && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                            {/* Nome */}
                             <div className="relative">
                                 <User className="absolute left-3 top-3.5 text-slate-500" size={20} />
                                 <input
@@ -104,7 +100,6 @@ export default function LoginPage() {
                                 />
                             </div>
 
-                            {/* Selector Coach/Player */}
                             <div className="grid grid-cols-2 gap-2 bg-slate-900 p-1 rounded-lg border border-slate-700">
                                 <button
                                     type="button"
@@ -122,7 +117,6 @@ export default function LoginPage() {
                                 </button>
                             </div>
 
-                            {/* Campo Licença (Só aparece se for Coach) */}
                             {role === 'coach' && (
                                 <div className="relative animate-in zoom-in duration-200">
                                     <Shield className="absolute left-3 top-3.5 text-green-500" size={20} />
@@ -137,7 +131,7 @@ export default function LoginPage() {
                         </div>
                     )}
 
-                    {/* Campos Comuns (Email/Pass) */}
+                    {/* Campos Comuns */}
                     <div className="relative">
                         <Mail className="absolute left-3 top-3.5 text-slate-500" size={20} />
                         <input
@@ -155,6 +149,18 @@ export default function LoginPage() {
                             value={password} onChange={(e) => setPassword(e.target.value)}
                         />
                     </div>
+
+                    {/* --- LINK ESQUECI-ME DA PASSWORD (SÓ NO LOGIN) --- */}
+                    {!isSignUp && (
+                        <div className="flex justify-end">
+                            <Link
+                                href="/forgot-password"
+                                className="text-xs text-green-500 hover:text-green-400 font-bold hover:underline transition"
+                            >
+                                Esqueceste-te da password?
+                            </Link>
+                        </div>
+                    )}
 
                     <button
                         type="submit" disabled={loading}
