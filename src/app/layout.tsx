@@ -7,25 +7,29 @@ import Footer from '../components/Footer';
 const inter = Inter({ subsets: ["latin"] });
 
 // 1. CONFIGURAÇÃO PWA (Viewport & Tema)
-// Isto define a cor da barra de topo do telemóvel e impede o zoom indesejado
+// Define a cor da barra de topo (status bar) e bloqueia o zoom para parecer app nativa
 export const viewport: Viewport = {
-    themeColor: "#0f172a", // A cor Slate-900 do teu fundo
+    themeColor: "#0f172a",
     width: "device-width",
     initialScale: 1,
     maximumScale: 1,
-    userScalable: false, // Faz com que pareça uma app nativa (não dá para fazer pinch-zoom)
+    userScalable: false,
 };
 
 // 2. METADADOS DA APP
 export const metadata: Metadata = {
     title: "Coach Next Level",
     description: "A ferramenta definitiva para treinadores de Padel.",
-    manifest: "/manifest.json", // O ficheiro que criámos antes
+    manifest: "/manifest.json", // O ficheiro que diz ao telemóvel que isto é uma App
+
+    // Ícones: Usamos o quadrado (192px) para não deformar
     icons: {
-        icon: "/logo.png",
-        shortcut: "/logo.png",
-        apple: "/logo.png", // Ícone para iPhone
+        icon: "/icon-192.png",       // Favicon do browser
+        shortcut: "/icon-192.png",   // Atalhos
+        apple: "/icon-192.png",      // Ícone do iPhone (IMPORTANTE ser quadrado)
     },
+
+    // Definições específicas da Apple
     appleWebApp: {
         capable: true,
         statusBarStyle: "black-translucent",
