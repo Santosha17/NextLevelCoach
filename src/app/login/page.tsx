@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { createClient } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Lock, Mail, User, Shield, Loader2, ArrowLeft } from 'lucide-react';
+import { Lock, Mail, User, Shield, Loader2, ArrowLeft, Phone } from 'lucide-react'; // Adicionei Phone
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -18,6 +18,7 @@ export default function LoginPage() {
 
     // Estados Novos para Registo
     const [fullName, setFullName] = useState('');
+    const [phone, setPhone] = useState(''); // <--- NOVO ESTADO PARA TELEMÓVEL
     const [role, setRole] = useState<'player' | 'coach'>('player');
     const [license, setLicense] = useState('');
 
@@ -38,8 +39,10 @@ export default function LoginPage() {
                     email,
                     password,
                     options: {
+                        // Guardamos estes dados extras nos metadados do utilizador
                         data: {
                             full_name: fullName,
+                            phone: phone, // <--- GUARDAMOS O TELEMÓVEL AQUI
                             role: role,
                             license_number: role === 'coach' ? license : null,
                             verified_coach: false
@@ -91,6 +94,8 @@ export default function LoginPage() {
                     {/* Campos Só para Registo */}
                     {isSignUp && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+
+                            {/* Nome */}
                             <div className="relative">
                                 <User className="absolute left-3 top-3.5 text-slate-500" size={20} />
                                 <input
@@ -100,6 +105,17 @@ export default function LoginPage() {
                                 />
                             </div>
 
+                            {/* Telemóvel (NOVO CAMPO) */}
+                            <div className="relative">
+                                <Phone className="absolute left-3 top-3.5 text-slate-500" size={20} />
+                                <input
+                                    type="tel" placeholder="Telemóvel (Opcional)"
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
+                                    value={phone} onChange={(e) => setPhone(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Selector Coach/Player */}
                             <div className="grid grid-cols-2 gap-2 bg-slate-900 p-1 rounded-lg border border-slate-700">
                                 <button
                                     type="button"
@@ -117,6 +133,7 @@ export default function LoginPage() {
                                 </button>
                             </div>
 
+                            {/* Campo Licença (Só aparece se for Coach) */}
                             {role === 'coach' && (
                                 <div className="relative animate-in zoom-in duration-200">
                                     <Shield className="absolute left-3 top-3.5 text-green-500" size={20} />
@@ -131,7 +148,7 @@ export default function LoginPage() {
                         </div>
                     )}
 
-                    {/* Campos Comuns */}
+                    {/* Campos Comuns (Email/Pass) */}
                     <div className="relative">
                         <Mail className="absolute left-3 top-3.5 text-slate-500" size={20} />
                         <input
@@ -150,7 +167,7 @@ export default function LoginPage() {
                         />
                     </div>
 
-                    {/* --- LINK ESQUECI-ME DA PASSWORD (SÓ NO LOGIN) --- */}
+                    {/* Link Esqueceu Password (SÓ NO LOGIN) */}
                     {!isSignUp && (
                         <div className="flex justify-end">
                             <Link
