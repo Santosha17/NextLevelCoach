@@ -5,7 +5,7 @@ import { createClient } from '@/src/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
-// 1. O COMPONENTE LÓGICO (Que lê o URL)
+// Componente interno que lê os parâmetros
 function AuthCallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -24,7 +24,7 @@ function AuthCallbackContent() {
                     router.push(next);
                 } catch (error) {
                     setMsg('Erro na autenticação. Tenta pedir o link novamente.');
-                    console.error('Auth error:', error);
+                    console.error(error);
                 }
             } else {
                 router.push('/login');
@@ -42,11 +42,11 @@ function AuthCallbackContent() {
     );
 }
 
-// 2. A PÁGINA PRINCIPAL (Que protege o conteúdo com Suspense)
+// Página Principal com Suspense (OBRIGATÓRIO para Static Export)
 export default function AuthCallbackPage() {
     return (
         <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white p-4">
-            <Suspense fallback={<Loader2 size={48} className="animate-spin text-green-500" />}>
+            <Suspense fallback={<div className="text-slate-500">A carregar...</div>}>
                 <AuthCallbackContent />
             </Suspense>
         </div>
