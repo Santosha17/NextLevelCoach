@@ -29,7 +29,16 @@ export default function LoginPage() {
         try {
             if (isSignUp) {
                 // === MODO CRIAR CONTA ===
-                if (role === 'coach' && !license) {
+
+                // 1. Validação Geral (Garante que nada está vazio)
+                if (!fullName.trim() || !phone.trim()) {
+                    alert('Todos os campos são obrigatórios, incluindo o telemóvel.');
+                    setLoading(false);
+                    return;
+                }
+
+                // 2. Validação Específica de Treinador
+                if (role === 'coach' && !license.trim()) {
                     alert('Treinadores certificados têm de inserir o nº de licença FPP.');
                     setLoading(false);
                     return;
@@ -39,10 +48,8 @@ export default function LoginPage() {
                     email,
                     password,
                     options: {
-                        // --- AQUI ESTÁ A ALTERAÇÃO ---
                         // Define para onde o utilizador volta após confirmar o email
                         emailRedirectTo: `${window.location.origin}/auth/callback`,
-                        // -----------------------------
                         data: {
                             full_name: fullName,
                             phone: phone,
@@ -54,7 +61,7 @@ export default function LoginPage() {
                 });
 
                 if (error) throw error;
-                // Mensagem atualizada
+
                 alert('Conta criada! Vai ao teu email e clica no link para confirmar.');
                 setIsSignUp(false);
 
@@ -109,11 +116,13 @@ export default function LoginPage() {
                                 />
                             </div>
 
-                            {/* Telemóvel */}
+                            {/* Telemóvel (AGORA OBRIGATÓRIO) */}
                             <div className="relative">
                                 <Phone className="absolute left-3 top-3.5 text-slate-500" size={20} />
                                 <input
-                                    type="tel" placeholder="Telemóvel (Opcional)"
+                                    type="tel"
+                                    placeholder="Telemóvel" // Removido o "(Opcional)"
+                                    required={isSignUp}     // Adicionado required
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
                                     value={phone} onChange={(e) => setPhone(e.target.value)}
                                 />
@@ -137,7 +146,7 @@ export default function LoginPage() {
                                 </button>
                             </div>
 
-                            {/* Campo Licença (Só aparece se for Coach) */}
+                            {/* Campo Licença (Só aparece se for Coach e é Obrigatório) */}
                             {role === 'coach' && (
                                 <div className="relative animate-in zoom-in duration-200">
                                     <Shield className="absolute left-3 top-3.5 text-green-500" size={20} />
