@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { createClient } from '@/src/lib/supabase'; // Confirma se o caminho é este ou ../../lib/supabase
-import { User, Shield, Save, Loader2, Check } from 'lucide-react';
+import { createClient } from '@/src/lib/supabase';
+import { User, Shield, Save, Loader2, Check, Phone } from 'lucide-react'; // <--- Adicionei Phone
 import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
@@ -15,6 +15,7 @@ export default function ProfilePage() {
 
     // Dados do Formulário
     const [fullName, setFullName] = useState('');
+    const [phone, setPhone] = useState(''); // <--- NOVO ESTADO
     const [role, setRole] = useState('player');
     const [license, setLicense] = useState('');
 
@@ -27,10 +28,11 @@ export default function ProfilePage() {
                 return;
             }
 
-            // Preencher o formulário com o que já existe na BD
+            // Preencher o formulário com o que já existe
             setFullName(user.user_metadata?.full_name || '');
+            setPhone(user.user_metadata?.phone || ''); // <--- CARREGAR TELEMÓVEL
             setRole(user.user_metadata?.role || 'player');
-            setLicense(user.user_metadata?.license_number || ''); // Carrega a licença mesmo que seja jogador
+            setLicense(user.user_metadata?.license_number || '');
             setLoading(false);
         };
 
@@ -54,21 +56,23 @@ export default function ProfilePage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Utilizador não encontrado');
 
-            // 2. Atualizar METADADOS (Para a Sessão/Login funcionar)
+            // 2. Atualizar METADADOS (Auth)
             const { error: authError } = await supabase.auth.updateUser({
                 data: {
                     full_name: fullName,
+                    phone: phone, // <--- ATUALIZAR NOS METADADOS
                     role: role,
                     license_number: license
                 }
             });
             if (authError) throw authError;
 
-            // 3. Atualizar TABELA PROFILES (Para aparecer na base de dados visual)
+            // 3. Atualizar TABELA PROFILES (Base de Dados)
             const { error: dbError } = await supabase
                 .from('profiles')
                 .update({
                     full_name: fullName,
+                    phone: phone, // <--- ATUALIZAR NA TABELA
                     role: role,
                     license_number: license
                 })
@@ -78,11 +82,11 @@ export default function ProfilePage() {
 
             setSuccess(true);
 
+            // Pequeno delay para mostrar o "Visto" verde antes de fazer refresh ou não
             setTimeout(() => {
                 setSuccess(false);
-                router.push('/dashboard');
-                router.refresh();
-            }, 1500);
+                // Opcional: router.refresh() se quiseres forçar reload dos dados
+            }, 2000);
 
         } catch (error: any) {
             alert('Erro ao atualizar: ' + error.message);
@@ -113,6 +117,21 @@ export default function ProfilePage() {
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none"
                                     value={fullName}
                                     onChange={(e) => setFullName(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Campo Telemóvel (NOVO) */}
+                        <div>
+                            <label className="block text-slate-400 text-sm font-bold uppercase mb-2">Telemóvel</label>
+                            <div className="relative">
+                                <Phone className="absolute left-3 top-3.5 text-slate-500" size={20} />
+                                <input
+                                    type="tel"
+                                    placeholder="Ex: 912 345 678"
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
                                 />
                             </div>
                         </div>
