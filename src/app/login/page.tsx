@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { createClient } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Lock, Mail, User, Shield, Loader2, ArrowLeft, Phone } from 'lucide-react'; // Adicionei Phone
+import { Lock, Mail, User, Shield, Loader2, ArrowLeft, Phone } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -18,7 +18,7 @@ export default function LoginPage() {
 
     // Estados Novos para Registo
     const [fullName, setFullName] = useState('');
-    const [phone, setPhone] = useState(''); // <--- NOVO ESTADO PARA TELEMÓVEL
+    const [phone, setPhone] = useState('');
     const [role, setRole] = useState<'player' | 'coach'>('player');
     const [license, setLicense] = useState('');
 
@@ -39,10 +39,13 @@ export default function LoginPage() {
                     email,
                     password,
                     options: {
-                        // Guardamos estes dados extras nos metadados do utilizador
+                        // --- AQUI ESTÁ A ALTERAÇÃO ---
+                        // Define para onde o utilizador volta após confirmar o email
+                        emailRedirectTo: `${window.location.origin}/auth/callback`,
+                        // -----------------------------
                         data: {
                             full_name: fullName,
-                            phone: phone, // <--- GUARDAMOS O TELEMÓVEL AQUI
+                            phone: phone,
                             role: role,
                             license_number: role === 'coach' ? license : null,
                             verified_coach: false
@@ -51,7 +54,8 @@ export default function LoginPage() {
                 });
 
                 if (error) throw error;
-                alert('Conta criada com sucesso! Podes entrar.');
+                // Mensagem atualizada
+                alert('Conta criada! Vai ao teu email e clica no link para confirmar.');
                 setIsSignUp(false);
 
             } else {
@@ -105,7 +109,7 @@ export default function LoginPage() {
                                 />
                             </div>
 
-                            {/* Telemóvel (NOVO CAMPO) */}
+                            {/* Telemóvel */}
                             <div className="relative">
                                 <Phone className="absolute left-3 top-3.5 text-slate-500" size={20} />
                                 <input
