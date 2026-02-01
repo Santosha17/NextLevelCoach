@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@/src/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, LayoutDashboard, Lock } from 'lucide-react';
+import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, LayoutDashboard, Lock, ArrowRight } from 'lucide-react';
 
 const CATEGORIES = ['Todas', 'Geral', 'Aquecimento', 'Ataque', 'Defesa', 'Saída de Parede', 'Volei', 'Bandeja/Víbora', 'Jogo de Pés'];
 
@@ -12,66 +12,36 @@ export default function Dashboard() {
     const supabase = createClient();
     const router = useRouter();
 
-    // Estados de Dados
+    // Estados
     const [drills, setDrills] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
-
-    // Estados de Permissões
     const [isAdmin, setIsAdmin] = useState(false);
-    const [isCoach, setIsCoach] = useState(false); // <--- NOVO: Para controlar botões de treinador
-
-    // Estado para contagens (KPIs)
-    const [stats, setStats] = useState({
-        students: 0,
-        plans: 0
-    });
-
+    const [isCoach, setIsCoach] = useState(false);
+    const [stats, setStats] = useState({ students: 0, plans: 0 });
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todas');
 
     useEffect(() => {
         const getData = async () => {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                router.push('/login');
-                return;
-            }
+            if (!user) { router.push('/login'); return; }
             setUser(user);
 
-            // 1. Verificar Perfil (Admin e Role)
-            // Adicionei 'role' na seleção para saber se é treinador ou jogador
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('is_admin, role')
-                .eq('id', user.id)
-                .single();
-
+            const { data: profile } = await supabase.from('profiles').select('is_admin, role').eq('id', user.id).single();
             if (profile) {
                 setIsAdmin(profile.is_admin || false);
-                setIsCoach(profile.role === 'coach'); // Define se é treinador
+                setIsCoach(profile.role === 'coach');
             }
 
-            // 2. Buscar Táticas (Todos podem ter táticas)
-            const drillsPromise = supabase
-                .from('drills')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
-
-            // 3. Buscar KPIs (Só faz sentido buscar se for treinador, mas podemos buscar sempre para evitar erros)
+            const drillsPromise = supabase.from('drills').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
             const studentsPromise = supabase.from('students').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
             const plansPromise = supabase.from('plans').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
 
             const [drillsRes, studentsRes, plansRes] = await Promise.all([drillsPromise, studentsPromise, plansPromise]);
 
             if (drillsRes.data) setDrills(drillsRes.data);
-
-            setStats({
-                students: studentsRes.count || 0,
-                plans: plansRes.count || 0
-            });
-
+            setStats({ students: studentsRes.count || 0, plans: plansRes.count || 0 });
             setLoading(false);
         };
         getData();
@@ -80,13 +50,8 @@ export default function Dashboard() {
     const deleteDrill = async (e: any, id: string) => {
         e.preventDefault();
         if (!confirm('Tens a certeza que queres apagar esta tática?')) return;
-
         const { error } = await supabase.from('drills').delete().eq('id', id);
-        if (error) {
-            alert('Erro: ' + error.message);
-        } else {
-            setDrills(drills.filter(drill => drill.id !== id));
-        }
+        if (!error) setDrills(drills.filter(drill => drill.id !== id));
     };
 
     const filteredDrills = drills.filter(drill => {
@@ -111,121 +76,89 @@ export default function Dashboard() {
             <div className="max-w-6xl mx-auto">
 
                 {/* CABEÇALHO */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                            <h1 className="text-3xl font-bold text-white">Olá, {user?.user_metadata?.full_name || 'Treinador'}</h1>
-
-                            {/* Botão Perfil */}
+                            <h1 className="text-3xl font-bold text-white">Olá, {user?.user_metadata?.full_name?.split(' ')[0] || 'Treinador'}</h1>
                             <Link href="/dashboard/perfil">
-                                <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full border border-slate-700 text-slate-400 hover:text-white transition" title="Editar Perfil">
-                                    <User size={18} />
-                                </button>
+                                <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full border border-slate-700 text-slate-400 hover:text-white transition"><User size={18} /></button>
                             </Link>
-
-                            {/* Botão Backoffice (Só aparece se isAdmin for true) */}
                             {isAdmin && (
                                 <Link href="/admin">
-                                    <button className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-full text-xs font-bold uppercase tracking-wider transition">
-                                        <Shield size={14} /> Backoffice
-                                    </button>
+                                    <button className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-full text-xs font-bold uppercase tracking-wider transition"><Shield size={14} /> Backoffice</button>
                                 </Link>
                             )}
                         </div>
-                        <p className="text-slate-400">Tens <span className="text-white font-bold">{drills.length}</span> exercícios criados.</p>
+                        <p className="text-slate-400">Tens <span className="text-white font-bold">{drills.length}</span> exercícios na tua biblioteca.</p>
                     </div>
 
-                    <div className="flex gap-3 flex-wrap">
-                        {/* Botões de Treinador (Só aparecem se isCoach for true) */}
-                        {isCoach && (
-                            <>
-                                <Link href="/dashboard/alunos">
-                                    <button className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition border border-slate-700 shadow-lg">
-                                        <Users size={20} className="text-blue-400" /> <span className="hidden sm:inline">Alunos</span>
-                                    </button>
-                                </Link>
-                                <Link href="/dashboard/planos">
-                                    <button className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition border border-slate-700 shadow-lg">
-                                        <Layers size={20} className="text-purple-400" /> <span className="hidden sm:inline">Planos</span>
-                                    </button>
-                                </Link>
-                            </>
-                        )}
+                    {/* Apenas o botão de Nova Tática aqui (Ação Principal) */}
+                    <Link href="/dashboard/tatica">
+                        <button className="bg-green-500 hover:bg-green-400 text-slate-900 font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition shadow-lg shadow-green-500/20 transform hover:-translate-y-1">
+                            <Plus size={20} /> <span className="hidden sm:inline">Nova Tática</span>
+                        </button>
+                    </Link>
+                </div>
 
-                        {/* Botão Nova Tática (Todos veem) */}
-                        <Link href="/dashboard/tatica">
-                            <button className="bg-green-500 hover:bg-green-400 text-slate-900 font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition shadow-lg shadow-green-500/20">
-                                <Plus size={20} /> <span className="hidden sm:inline">Nova Tática</span>
-                            </button>
+                {/* --- CARTÕES CLICÁVEIS (ATALHOS RÁPIDOS) --- */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 animate-in slide-in-from-bottom-4 duration-500">
+
+                    {/* Cartão ALUNOS */}
+                    {isCoach ? (
+                        <Link href="/dashboard/alunos">
+                            <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex items-center justify-between hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 transition group cursor-pointer h-full">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl group-hover:scale-110 transition"><Users size={28} /></div>
+                                    <div>
+                                        <p className="text-slate-400 text-xs uppercase font-bold tracking-wider">Meus Alunos</p>
+                                        <p className="text-3xl font-black text-white">{stats.students}</p>
+                                    </div>
+                                </div>
+                                <ArrowRight className="text-slate-600 group-hover:text-blue-500 group-hover:translate-x-1 transition" />
+                            </div>
                         </Link>
-                    </div>
-                </div>
-
-                {/* --- KPIS (Só mostramos os cartões de gestão se for treinador) --- */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-in slide-in-from-bottom-4 duration-500">
-
-                    {/* Cartão ALUNOS (Só treinador) */}
-                    {isCoach ? (
-                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 hover:border-blue-500/50 transition">
-                            <div className="p-3 bg-blue-500/10 text-blue-500 rounded-lg">
-                                <Users size={24} />
-                            </div>
-                            <div>
-                                <p className="text-slate-400 text-xs uppercase font-bold">Meus Alunos</p>
-                                <p className="text-2xl font-black text-white">{stats.students}</p>
-                            </div>
-                        </div>
                     ) : (
-                        // Placeholder para Jogador (ou podes remover este bloco else)
-                        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 flex items-center gap-4 opacity-50">
-                            <div className="p-3 bg-slate-700 text-slate-500 rounded-lg">
-                                <Lock size={24} />
-                            </div>
-                            <div>
-                                <p className="text-slate-500 text-xs uppercase font-bold">Modo Jogador</p>
-                                <p className="text-sm text-slate-400">Torna-te treinador</p>
-                            </div>
+                        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex items-center gap-4 opacity-60">
+                            <div className="p-3 bg-slate-700 text-slate-500 rounded-xl"><Lock size={28} /></div>
+                            <div><p className="text-slate-500 text-xs uppercase font-bold">Alunos</p><p className="text-sm text-slate-400 font-medium">Conta de Jogador</p></div>
                         </div>
                     )}
 
-                    {/* Cartão PLANOS (Só treinador) */}
+                    {/* Cartão PLANOS */}
                     {isCoach ? (
-                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 hover:border-purple-500/50 transition">
-                            <div className="p-3 bg-purple-500/10 text-purple-500 rounded-lg">
-                                <Layers size={24} />
+                        <Link href="/dashboard/planos">
+                            <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex items-center justify-between hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10 transition group cursor-pointer h-full">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-purple-500/10 text-purple-500 rounded-xl group-hover:scale-110 transition"><Layers size={28} /></div>
+                                    <div>
+                                        <p className="text-slate-400 text-xs uppercase font-bold tracking-wider">Planos de Aula</p>
+                                        <p className="text-3xl font-black text-white">{stats.plans}</p>
+                                    </div>
+                                </div>
+                                <ArrowRight className="text-slate-600 group-hover:text-purple-500 group-hover:translate-x-1 transition" />
                             </div>
-                            <div>
-                                <p className="text-slate-400 text-xs uppercase font-bold">Planos de Aula</p>
-                                <p className="text-2xl font-black text-white">{stats.plans}</p>
-                            </div>
-                        </div>
+                        </Link>
                     ) : (
-                        // Placeholder vazio ou outra estatística para jogador
-                        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 flex items-center gap-4 opacity-50">
-                            <div className="p-3 bg-slate-700 text-slate-500 rounded-lg">
-                                <Lock size={24} />
-                            </div>
-                            <div>
-                                <p className="text-slate-500 text-xs uppercase font-bold">Planos</p>
-                                <p className="text-sm text-slate-400">Área restrita</p>
-                            </div>
+                        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex items-center gap-4 opacity-60">
+                            <div className="p-3 bg-slate-700 text-slate-500 rounded-xl"><Lock size={28} /></div>
+                            <div><p className="text-slate-500 text-xs uppercase font-bold">Planos</p><p className="text-sm text-slate-400 font-medium">Conta de Jogador</p></div>
                         </div>
                     )}
 
-                    {/* Cartão BIBLIOTECA (Todos veem) */}
-                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 hover:border-green-500/50 transition">
-                        <div className="p-3 bg-green-500/10 text-green-500 rounded-lg">
-                            <LayoutDashboard size={24} />
-                        </div>
-                        <div>
-                            <p className="text-slate-400 text-xs uppercase font-bold">Biblioteca</p>
-                            <p className="text-2xl font-black text-white">{drills.length}</p>
+                    {/* Cartão BIBLIOTECA (Scroll para baixo ou link para própria página) */}
+                    <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex items-center justify-between hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/10 transition group h-full">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-green-500/10 text-green-500 rounded-xl group-hover:scale-110 transition"><LayoutDashboard size={28} /></div>
+                            <div>
+                                <p className="text-slate-400 text-xs uppercase font-bold tracking-wider">Biblioteca</p>
+                                <p className="text-3xl font-black text-white">{drills.length}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* SEARCH BAR (Igual) */}
-                <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 mb-8 space-y-4 sticky top-20 z-10 shadow-xl">
+                {/* SEARCH BAR */}
+                <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 mb-8 space-y-4 sticky top-4 z-30 shadow-2xl shadow-black/50">
                     <div className="relative">
                         <Search className="absolute left-3 top-3 text-slate-500" size={20} />
                         <input
@@ -249,7 +182,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* GRELHA DE TÁTICAS (Igual) */}
+                {/* GRELHA DE TÁTICAS */}
                 {filteredDrills.length === 0 ? (
                     <div className="text-center py-20 bg-slate-800/30 rounded-2xl border border-slate-700 border-dashed">
                         <Filter size={48} className="mx-auto text-slate-600 mb-4" />
@@ -261,51 +194,29 @@ export default function Dashboard() {
                         {filteredDrills.map((drill) => (
                             <Link href={`/dashboard/tatica?id=${drill.id}`} key={drill.id}>
                                 <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 hover:border-green-500/50 transition group flex flex-col hover:shadow-2xl hover:shadow-black/50 hover:-translate-y-1 h-full">
-                                    {/* 1. THUMBNAIL */}
                                     <div className="relative h-52 w-full bg-slate-900 border-b border-slate-700 group-hover:opacity-90 transition p-2">
                                         {drill.image_url ? (
-                                            <img
-                                                src={drill.image_url}
-                                                alt={drill.title}
-                                                className="w-full h-full object-contain"
-                                            />
+                                            <img src={drill.image_url} alt={drill.title} className="w-full h-full object-contain" />
                                         ) : (
                                             <div className="w-full h-full flex flex-col items-center justify-center gap-2 opacity-20">
                                                 <LayoutDashboard size={40} className="text-slate-400" />
                                                 <span className="text-xs text-slate-500">Sem pré-visualização</span>
                                             </div>
                                         )}
-
                                         <div className="absolute top-3 left-3">
                                             <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border backdrop-blur-md shadow-lg ${getCategoryColor(drill.category || 'Geral')}`}>
                                                 {drill.category || 'Geral'}
                                             </span>
                                         </div>
                                     </div>
-
-                                    {/* 2. INFO AREA */}
                                     <div className="p-4 flex-1 flex flex-col">
                                         <div className="flex justify-between items-start gap-2 mb-2">
-                                            <h3 className="text-lg font-bold text-white leading-snug line-clamp-2 group-hover:text-green-400 transition-colors">
-                                                {drill.title}
-                                            </h3>
-                                            <button
-                                                onClick={(e) => deleteDrill(e, drill.id)}
-                                                className="text-slate-600 hover:text-red-400 transition p-1 hover:bg-slate-700 rounded"
-                                                title="Apagar Tática"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            <h3 className="text-lg font-bold text-white leading-snug line-clamp-2 group-hover:text-green-400 transition-colors">{drill.title}</h3>
+                                            <button onClick={(e) => deleteDrill(e, drill.id)} className="text-slate-600 hover:text-red-400 transition p-1 hover:bg-slate-700 rounded" title="Apagar Tática"><Trash2 size={16} /></button>
                                         </div>
-
                                         <div className="mt-auto pt-4 flex justify-between items-center text-xs text-slate-500 border-t border-slate-700/50">
-                                            <div className="flex items-center gap-1.5">
-                                                <Calendar size={12} />
-                                                {new Date(drill.created_at).toLocaleDateString('pt-PT')}
-                                            </div>
-                                            <div className="flex items-center gap-1.5 text-green-500/80 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                                                ABRIR <span>→</span>
-                                            </div>
+                                            <div className="flex items-center gap-1.5"><Calendar size={12} /> {new Date(drill.created_at).toLocaleDateString('pt-PT')}</div>
+                                            <div className="flex items-center gap-1.5 text-green-500/80 font-bold opacity-0 group-hover:opacity-100 transition-opacity">ABRIR <span>→</span></div>
                                         </div>
                                     </div>
                                 </div>

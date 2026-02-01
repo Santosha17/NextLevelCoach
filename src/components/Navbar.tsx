@@ -8,20 +8,44 @@ import { UserCircle, LogOut, Menu, X, LayoutDashboard, Layers, Users } from 'luc
 
 const Navbar = () => {
     const [user, setUser] = useState<any>(null);
+    const [isCoach, setIsCoach] = useState(false); // <--- NOVO: Estado para verificar função
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
     const supabase = createClient();
     const router = useRouter();
     const pathname = usePathname();
 
     useEffect(() => {
-        const getUser = async () => {
+        const getUserAndProfile = async () => {
+            // 1. Obter User Autenticado
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
-        };
-        getUser();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (user) {
+                // 2. Verificar se é Treinador na tabela profiles
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .single();
+
+                setIsCoach(profile?.role === 'coach');
+            }
+        };
+
+        getUserAndProfile();
+
+        // Ouvir alterações de sessão
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             setUser(session?.user ?? null);
+
+            if (session?.user) {
+                // Re-verificar role ao fazer login/trocar sessão
+                const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+                setIsCoach(data?.role === 'coach');
+            } else {
+                setIsCoach(false);
+            }
         });
 
         return () => subscription.unsubscribe();
@@ -30,6 +54,7 @@ const Navbar = () => {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         setIsMobileMenuOpen(false);
+        setIsCoach(false);
         router.push('/login');
         router.refresh();
     };
@@ -55,18 +80,24 @@ const Navbar = () => {
                         >
                             <LayoutDashboard size={16} /> Dashboard
                         </Link>
-                        <Link
-                            href="/dashboard/planos"
-                            className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard/planos' ? 'text-green-500' : ''}`}
-                        >
-                            <Layers size={16} /> Planos
-                        </Link>
-                        <Link
-                            href="/dashboard/alunos"
-                            className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard/alunos' ? 'text-green-500' : ''}`}
-                        >
-                            <Users size={16} /> Alunos
-                        </Link>
+
+                        {/* SÓ MOSTRA SE FOR TREINADOR */}
+                        {isCoach && (
+                            <>
+                                <Link
+                                    href="/dashboard/planos"
+                                    className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard/planos' ? 'text-green-500' : ''}`}
+                                >
+                                    <Layers size={16} /> Planos
+                                </Link>
+                                <Link
+                                    href="/dashboard/alunos"
+                                    className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard/alunos' ? 'text-green-500' : ''}`}
+                                >
+                                    <Users size={16} /> Alunos
+                                </Link>
+                            </>
+                        )}
                     </div>
                 )}
 
@@ -78,10 +109,11 @@ const Navbar = () => {
                             {/* Nome do Treinador */}
                             <div className="hidden sm:flex flex-col items-end">
                                 <span className="text-white text-sm font-bold leading-tight">
-                                    {user.user_metadata?.full_name || 'Treinador'}
+                                    {user.user_metadata?.full_name || 'Utilizador'}
                                 </span>
-                                <span className="text-green-500 text-[10px] uppercase font-black tracking-widest">
-                                    FREE
+                                {/* Badge Dinâmico */}
+                                <span className="text-green-500 text-[10px] uppercase font-black tracking-widest text-right">
+                                    {isCoach ? 'TREINADOR' : 'JOGADOR'}
                                 </span>
                             </div>
 
@@ -121,17 +153,24 @@ const Navbar = () => {
                         {user ? (
                             <>
                                 <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                    Menu Treinador
+                                    Menu {isCoach ? 'Treinador' : 'Jogador'}
                                 </div>
                                 <MobileLink href="/dashboard" icon={<LayoutDashboard size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
                                     Dashboard
                                 </MobileLink>
-                                <MobileLink href="/dashboard/planos" icon={<Layers size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
-                                    Planos de Aula
-                                </MobileLink>
-                                <MobileLink href="/dashboard/alunos" icon={<Users size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
-                                    Meus Alunos
-                                </MobileLink>
+
+                                {/* SÓ MOSTRA SE FOR TREINADOR */}
+                                {isCoach && (
+                                    <>
+                                        <MobileLink href="/dashboard/planos" icon={<Layers size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
+                                            Planos de Aula
+                                        </MobileLink>
+                                        <MobileLink href="/dashboard/alunos" icon={<Users size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
+                                            Meus Alunos
+                                        </MobileLink>
+                                    </>
+                                )}
+
                                 <button
                                     onClick={handleLogout}
                                     className="w-full text-left p-3 rounded-lg hover:bg-red-500/10 text-red-400 font-bold flex items-center gap-3 mt-4 border border-transparent hover:border-red-500/20 transition"
