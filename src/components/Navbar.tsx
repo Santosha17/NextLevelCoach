@@ -40,7 +40,7 @@ const Navbar = () => {
             setUser(session?.user ?? null);
 
             if (session?.user) {
-                // Re-verificar role ao fazer login/trocar sessão
+                // Reverificar role ao fazer login trocar sessão
                 const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
                 setIsCoach(data?.role === 'coach');
             } else {

@@ -120,7 +120,7 @@ export default function Dashboard() {
                     ) : (
                         <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex items-center gap-4 opacity-60">
                             <div className="p-3 bg-slate-700 text-slate-500 rounded-xl"><Lock size={28} /></div>
-                            <div><p className="text-slate-500 text-xs uppercase font-bold">Alunos</p><p className="text-sm text-slate-400 font-medium">Conta de Jogador</p></div>
+                            <div><p className="text-slate-500 text-xs uppercase font-bold">Alunos</p><p className="text-sm text-slate-400 font-medium">Conta de Treinador</p></div>
                         </div>
                     )}
 
@@ -141,7 +141,7 @@ export default function Dashboard() {
                     ) : (
                         <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex items-center gap-4 opacity-60">
                             <div className="p-3 bg-slate-700 text-slate-500 rounded-xl"><Lock size={28} /></div>
-                            <div><p className="text-slate-500 text-xs uppercase font-bold">Planos</p><p className="text-sm text-slate-400 font-medium">Conta de Jogador</p></div>
+                            <div><p className="text-slate-500 text-xs uppercase font-bold">Planos</p><p className="text-sm text-slate-400 font-medium">Conta de Treinador</p></div>
                         </div>
                     )}
 
