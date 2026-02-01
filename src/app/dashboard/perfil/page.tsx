@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@/src/lib/supabase';
-import { User, Shield, Save, Loader2, Check, Phone, ArrowLeft } from 'lucide-react';
+import { User, Shield, Save, Loader2, Check, Phone, ArrowLeft, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link'; // Importei Link para o botão de voltar
+import Link from 'next/link';
 
 export default function ProfilePage() {
     const supabase = createClient();
@@ -17,8 +17,9 @@ export default function ProfilePage() {
     // Dados do Formulário
     const [fullName, setFullName] = useState('');
     const [phone, setPhone] = useState('');
-    const [role, setRole] = useState('player'); // Valor por defeito
+    const [role, setRole] = useState('player');
     const [license, setLicense] = useState('');
+    const [isVerified, setIsVerified] = useState(false); // <--- NOVO: Estado de verificação
 
     // 1. Carregar dados atuais
     useEffect(() => {
@@ -29,7 +30,7 @@ export default function ProfilePage() {
                 return;
             }
 
-            // Tenta carregar primeiro da tabela 'profiles' (dados mais fiáveis e persistentes)
+            // Carregar perfil da tabela
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('*')
@@ -41,30 +42,28 @@ export default function ProfilePage() {
                 setPhone(profile.phone || '');
                 setRole(profile.role || 'player');
                 setLicense(profile.license_number || '');
+                setIsVerified(profile.verified_coach || false); // Carrega estado de aprovação
             } else {
-                // Fallback para metadata se não houver perfil na tabela (ex: primeiro login)
                 setFullName(user.user_metadata?.full_name || '');
                 setPhone(user.user_metadata?.phone || '');
-                setRole(user.user_metadata?.role || 'player');
-                setLicense(user.user_metadata?.license_number || '');
             }
 
             setLoading(false);
         };
 
         loadProfile();
-    }, [router, supabase]); // Adicionei dependências ao useEffect
+    }, [router, supabase]);
 
     // 2. Gravar Alterações
     const updateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
-        setSuccess(false); // Reseta o estado de sucesso antes de começar
+        setSuccess(false);
 
         try {
-            // Validação: Treinador precisa de licença
+            // Se for treinador, validar licença
             if (role === 'coach' && !license.trim()) {
-                alert('Para o perfil de Treinador, a Licença FPP é obrigatória.');
+                alert('A Licença FPP é obrigatória para treinadores.');
                 setSaving(false);
                 return;
             }
@@ -72,44 +71,35 @@ export default function ProfilePage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Utilizador não encontrado');
 
-            // Atualizar METADADOS (Auth) - Útil para acesso rápido na sessão
-            const { error: authError } = await supabase.auth.updateUser({
-                data: {
-                    full_name: fullName,
-                    phone: phone,
-                    role: role,
-                    license_number: license
-                }
+            // Atualizar Auth Metadata
+            await supabase.auth.updateUser({
+                data: { full_name: fullName, phone: phone, license_number: license }
             });
-            if (authError) throw authError;
 
-            // Atualizar TABELA PROFILES (Base de Dados) - A fonte de verdade
+            // Atualizar Tabela Profiles (Nota: Não enviamos 'role' aqui para não permitir mudança forçada)
             const updates = {
                 id: user.id,
                 full_name: fullName,
                 phone: phone,
-                role: role,
-                license_number: license,
+                license_number: license, // Atualizamos a licença mas não o cargo
                 updated_at: new Date().toISOString(),
             };
 
             const { error: dbError } = await supabase
                 .from('profiles')
-                .upsert(updates); // Usa upsert para criar se não existir
+                .upsert(updates);
 
             if (dbError) throw dbError;
 
             setSuccess(true);
-
-            // Feedback visual temporário
             setTimeout(() => {
                 setSuccess(false);
-                setSaving(false); // Volta ao estado normal do botão
-                router.refresh(); // Atualiza a página para refletir dados (ex: Navbar)
+                setSaving(false);
+                router.refresh();
             }, 2000);
 
         } catch (error: any) {
-            alert('Erro ao atualizar: ' + error.message);
+            alert('Erro: ' + error.message);
             setSaving(false);
         }
     };
@@ -120,16 +110,50 @@ export default function ProfilePage() {
         <div className="min-h-screen bg-slate-900 p-6 md:p-10 text-white">
             <div className="max-w-2xl mx-auto">
 
-                {/* Header com Botão Voltar */}
+                {/* Header */}
                 <div className="flex items-center gap-4 mb-8 border-b border-slate-800 pb-4">
                     <Link href="/dashboard" className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 transition">
                         <ArrowLeft size={20} />
                     </Link>
-                    <h1 className="text-3xl font-bold">Definições de Perfil</h1>
+                    <h1 className="text-3xl font-bold">O Meu Perfil</h1>
                 </div>
 
                 <div className="bg-slate-800 rounded-2xl border border-slate-700 p-8 shadow-xl">
                     <form onSubmit={updateProfile} className="space-y-6">
+
+                        {/* STATUS DA CONTA (NÃO EDITÁVEL) */}
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className={`p-3 rounded-full ${role === 'coach' ? 'bg-purple-500/10 text-purple-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                                    {role === 'coach' ? <Shield size={24} /> : <User size={24} />}
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold uppercase text-slate-500 mb-0.5">Tipo de Conta</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-lg font-bold text-white capitalize">
+                                            {role === 'coach' ? 'Treinador' : 'Jogador'}
+                                        </p>
+
+                                        {/* Badge de Verificação (Só para Treinadores) */}
+                                        {role === 'coach' && (
+                                            isVerified ? (
+                                                <span className="flex items-center gap-1 text-[10px] bg-green-500/10 text-green-500 border border-green-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                    <CheckCircle size={10} /> Verificado
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-1 text-[10px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                    <AlertCircle size={10} /> Pendente
+                                                </span>
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="text-slate-500" title="Contacta o suporte para mudar de cargo">
+                                <Lock size={18} />
+                            </div>
+                        </div>
 
                         {/* Campo Nome */}
                         <div>
@@ -141,7 +165,6 @@ export default function ProfilePage() {
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
                                     value={fullName}
                                     onChange={(e) => setFullName(e.target.value)}
-                                    placeholder="O teu nome"
                                 />
                             </div>
                         </div>
@@ -153,38 +176,15 @@ export default function ProfilePage() {
                                 <Phone className="absolute left-3 top-3.5 text-slate-500" size={20} />
                                 <input
                                     type="tel"
-                                    placeholder="Ex: 912 345 678"
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
                                     value={phone}
                                     onChange={(e) => setPhone(e.target.value)}
+                                    placeholder="912 345 678"
                                 />
                             </div>
                         </div>
 
-                        {/* Seletor de Tipo de Conta */}
-                        <div>
-                            <label className="block text-slate-400 text-xs font-bold uppercase mb-2">Tipo de Conta</label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setRole('player')}
-                                    className={`py-4 rounded-xl border-2 font-bold transition flex flex-col items-center gap-2 ${role === 'player' ? 'border-green-500 bg-green-500/10 text-white' : 'border-slate-700 bg-slate-900 text-slate-500 hover:border-slate-500 hover:bg-slate-800'}`}
-                                >
-                                    <User size={24} />
-                                    <span>Jogador</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setRole('coach')}
-                                    className={`py-4 rounded-xl border-2 font-bold transition flex flex-col items-center gap-2 ${role === 'coach' ? 'border-green-500 bg-green-500/10 text-white' : 'border-slate-700 bg-slate-900 text-slate-500 hover:border-slate-500 hover:bg-slate-800'}`}
-                                >
-                                    <Shield size={24} />
-                                    <span>Treinador</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Campo Licença (Condicional) */}
+                        {/* Campo Licença (Só aparece para Treinadores, mas é editável para correções) */}
                         {role === 'coach' && (
                             <div className="animate-in fade-in slide-in-from-top-2 duration-300 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
                                 <label className="block text-green-400 text-xs font-bold uppercase mb-2 flex items-center gap-2">
@@ -192,12 +192,11 @@ export default function ProfilePage() {
                                 </label>
                                 <input
                                     type="text"
-                                    placeholder="Ex: 12345"
                                     className="w-full bg-slate-800 border border-slate-600 rounded-lg py-3 px-4 text-white focus:border-green-500 outline-none transition"
                                     value={license}
                                     onChange={(e) => setLicense(e.target.value)}
                                 />
-                                <p className="text-[10px] text-slate-500 mt-2">Obrigatório para contas de treinador.</p>
+                                <p className="text-[10px] text-slate-500 mt-2">Necessário para validação da conta de treinador.</p>
                             </div>
                         )}
 
