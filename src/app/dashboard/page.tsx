@@ -28,9 +28,9 @@ export default function Dashboard() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todas');
 
-    // --- CARREGAMENTO DE DADOS (COM PROTEÇÃO CONTRA LOOP) ---
+    // --- CARREGAMENTO DE DADOS ---
     useEffect(() => {
-        let isMounted = true; // Flag para saber se o componente ainda está no ecrã
+        let isMounted = true;
 
         const getData = async () => {
             try {
@@ -56,7 +56,7 @@ export default function Dashboard() {
                     setIsCoach(profile.role === 'coach');
                 }
 
-                // 3. Buscar Dados em Paralelo (Táticas, Contagem Alunos, Contagem Planos)
+                // 3. Buscar Dados
                 const [drillsRes, studentsRes, plansRes] = await Promise.all([
                     supabase.from('drills').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
                     supabase.from('students').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
@@ -65,7 +65,6 @@ export default function Dashboard() {
 
                 if (isMounted) {
                     if (drillsRes.data) setDrills(drillsRes.data);
-
                     setStats({
                         students: studentsRes.count || 0,
                         plans: plansRes.count || 0
@@ -75,14 +74,12 @@ export default function Dashboard() {
             } catch (error) {
                 console.error("Erro ao carregar dashboard:", error);
             } finally {
-                // O bloco finally corre SEMPRE, garantindo que o loading desaparece
                 if (isMounted) setLoading(false);
             }
         };
 
         getData();
 
-        // Função de limpeza: se o user sair da página a meio do load, isMounted fica false
         return () => { isMounted = false; };
     }, [router, supabase]);
 
@@ -92,14 +89,9 @@ export default function Dashboard() {
         if (!confirm('Tens a certeza que queres apagar esta tática?')) return;
 
         const { error } = await supabase.from('drills').delete().eq('id', id);
-        if (error) {
-            alert('Erro: ' + error.message);
-        } else {
-            setDrills(drills.filter(drill => drill.id !== id));
-        }
+        if (!error) setDrills(drills.filter(drill => drill.id !== id));
     };
 
-    // --- FILTROS ---
     const filteredDrills = drills.filter(drill => {
         const matchesSearch = drill.title.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = selectedCategory === 'Todas' || (drill.category || 'Geral') === selectedCategory;
@@ -129,14 +121,14 @@ export default function Dashboard() {
                                 Olá, {user?.user_metadata?.full_name?.split(' ')[0] || 'Treinador'}
                             </h1>
 
-                            {/* Botão Editar Perfil */}
+                            {/* Botão Perfil */}
                             <Link href="/dashboard/perfil">
                                 <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full border border-slate-700 text-slate-400 hover:text-white transition" title="O meu perfil">
                                     <User size={18} />
                                 </button>
                             </Link>
 
-                            {/* Botão Backoffice (Só Admin) */}
+                            {/* --- BOTÃO BACKOFFICE (SÓ ADMIN) --- */}
                             {isAdmin && (
                                 <Link href="/admin">
                                     <button className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-full text-xs font-bold uppercase tracking-wider transition">
@@ -148,7 +140,7 @@ export default function Dashboard() {
                         <p className="text-slate-400">Tens <span className="text-white font-bold">{drills.length}</span> exercícios na tua biblioteca.</p>
                     </div>
 
-                    {/* Botão Principal: Nova Tática */}
+                    {/* Botão Nova Tática */}
                     <Link href="/dashboard/tatica">
                         <button className="bg-green-500 hover:bg-green-400 text-slate-900 font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition shadow-lg shadow-green-500/20 transform hover:-translate-y-1">
                             <Plus size={20} /> <span className="hidden sm:inline">Nova Tática</span>
@@ -156,10 +148,10 @@ export default function Dashboard() {
                     </Link>
                 </div>
 
-                {/* --- CARTÕES DE NAVEGAÇÃO RÁPIDA --- */}
+                {/* --- CARTÕES DE NAVEGAÇÃO --- */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 animate-in slide-in-from-bottom-4 duration-500">
 
-                    {/* Cartão ALUNOS */}
+                    {/* Cartão ALUNOS (Só Treinador) */}
                     {isCoach ? (
                         <Link href="/dashboard/alunos">
                             <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex items-center justify-between hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 transition group cursor-pointer h-full">
@@ -183,7 +175,7 @@ export default function Dashboard() {
                         </div>
                     )}
 
-                    {/* Cartão PLANOS */}
+                    {/* Cartão PLANOS (Só Treinador) */}
                     {isCoach ? (
                         <Link href="/dashboard/planos">
                             <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex items-center justify-between hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10 transition group cursor-pointer h-full">
@@ -207,7 +199,7 @@ export default function Dashboard() {
                         </div>
                     )}
 
-                    {/* Cartão BIBLIOTECA (Estático, apenas informativo) */}
+                    {/* Cartão BIBLIOTECA (Todos) */}
                     <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex items-center justify-between hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/10 transition group h-full">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-green-500/10 text-green-500 rounded-xl group-hover:scale-110 transition"><LayoutDashboard size={28} /></div>
@@ -219,7 +211,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* --- BARRA DE PESQUISA --- */}
+                {/* --- SEARCH BAR --- */}
                 <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 mb-8 space-y-4 sticky top-4 z-30 shadow-2xl shadow-black/50">
                     <div className="relative">
                         <Search className="absolute left-3 top-3 text-slate-500" size={20} />
@@ -256,15 +248,9 @@ export default function Dashboard() {
                         {filteredDrills.map((drill) => (
                             <Link href={`/dashboard/tatica?id=${drill.id}`} key={drill.id}>
                                 <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 hover:border-green-500/50 transition group flex flex-col hover:shadow-2xl hover:shadow-black/50 hover:-translate-y-1 h-full">
-
-                                    {/* Thumbnail da Tática */}
                                     <div className="relative h-52 w-full bg-slate-900 border-b border-slate-700 group-hover:opacity-90 transition p-2">
                                         {drill.image_url ? (
-                                            <img
-                                                src={drill.image_url}
-                                                alt={drill.title}
-                                                className="w-full h-full object-contain"
-                                            />
+                                            <img src={drill.image_url} alt={drill.title} className="w-full h-full object-contain" />
                                         ) : (
                                             <div className="w-full h-full flex flex-col items-center justify-center gap-2 opacity-20">
                                                 <LayoutDashboard size={40} className="text-slate-400" />
@@ -277,30 +263,14 @@ export default function Dashboard() {
                                             </span>
                                         </div>
                                     </div>
-
-                                    {/* Info e Ações */}
                                     <div className="p-4 flex-1 flex flex-col">
                                         <div className="flex justify-between items-start gap-2 mb-2">
-                                            <h3 className="text-lg font-bold text-white leading-snug line-clamp-2 group-hover:text-green-400 transition-colors">
-                                                {drill.title}
-                                            </h3>
-                                            <button
-                                                onClick={(e) => deleteDrill(e, drill.id)}
-                                                className="text-slate-600 hover:text-red-400 transition p-1 hover:bg-slate-700 rounded"
-                                                title="Apagar Tática"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            <h3 className="text-lg font-bold text-white leading-snug line-clamp-2 group-hover:text-green-400 transition-colors">{drill.title}</h3>
+                                            <button onClick={(e) => deleteDrill(e, drill.id)} className="text-slate-600 hover:text-red-400 transition p-1 hover:bg-slate-700 rounded" title="Apagar Tática"><Trash2 size={16} /></button>
                                         </div>
-
                                         <div className="mt-auto pt-4 flex justify-between items-center text-xs text-slate-500 border-t border-slate-700/50">
-                                            <div className="flex items-center gap-1.5">
-                                                <Calendar size={12} />
-                                                {new Date(drill.created_at).toLocaleDateString('pt-PT')}
-                                            </div>
-                                            <div className="flex items-center gap-1.5 text-green-500/80 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                                                ABRIR <span>→</span>
-                                            </div>
+                                            <div className="flex items-center gap-1.5"><Calendar size={12} /> {new Date(drill.created_at).toLocaleDateString('pt-PT')}</div>
+                                            <div className="flex items-center gap-1.5 text-green-500/80 font-bold opacity-0 group-hover:opacity-100 transition-opacity">ABRIR <span>→</span></div>
                                         </div>
                                     </div>
                                 </div>
