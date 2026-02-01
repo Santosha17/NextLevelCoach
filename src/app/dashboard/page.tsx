@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { createClient } from '@/src/lib/supabase'; // Confirma se o caminho é este
+import { createClient } from '@/src/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, LayoutDashboard } from 'lucide-react';
+import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, LayoutDashboard, Lock } from 'lucide-react';
 
 const CATEGORIES = ['Todas', 'Geral', 'Aquecimento', 'Ataque', 'Defesa', 'Saída de Parede', 'Volei', 'Bandeja/Víbora', 'Jogo de Pés'];
 
@@ -12,10 +12,14 @@ export default function Dashboard() {
     const supabase = createClient();
     const router = useRouter();
 
+    // Estados de Dados
     const [drills, setDrills] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
+
+    // Estados de Permissões
     const [isAdmin, setIsAdmin] = useState(false);
+    const [isCoach, setIsCoach] = useState(false); // <--- NOVO: Para controlar botões de treinador
 
     // Estado para contagens (KPIs)
     const [stats, setStats] = useState({
@@ -35,31 +39,31 @@ export default function Dashboard() {
             }
             setUser(user);
 
-            // 1. Verificar Admin
-            const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
-            if (profile && profile.is_admin) setIsAdmin(true);
+            // 1. Verificar Perfil (Admin e Role)
+            // Adicionei 'role' na seleção para saber se é treinador ou jogador
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('is_admin, role')
+                .eq('id', user.id)
+                .single();
 
-            // 2. Buscar Táticas, Contagem de Alunos e Contagem de Planos (Em paralelo)
-            const [drillsRes, studentsRes, plansRes] = await Promise.all([
-                // Buscar exercícios (precisamos dos dados todos para a lista)
-                supabase
-                    .from('drills')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: false }),
+            if (profile) {
+                setIsAdmin(profile.is_admin || false);
+                setIsCoach(profile.role === 'coach'); // Define se é treinador
+            }
 
-                // Contar alunos (apenas o número)
-                supabase
-                    .from('students')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('user_id', user.id),
+            // 2. Buscar Táticas (Todos podem ter táticas)
+            const drillsPromise = supabase
+                .from('drills')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
 
-                // Contar planos (apenas o número)
-                supabase
-                    .from('plans')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('user_id', user.id)
-            ]);
+            // 3. Buscar KPIs (Só faz sentido buscar se for treinador, mas podemos buscar sempre para evitar erros)
+            const studentsPromise = supabase.from('students').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
+            const plansPromise = supabase.from('plans').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
+
+            const [drillsRes, studentsRes, plansRes] = await Promise.all([drillsPromise, studentsPromise, plansPromise]);
 
             if (drillsRes.data) setDrills(drillsRes.data);
 
@@ -74,7 +78,7 @@ export default function Dashboard() {
     }, []);
 
     const deleteDrill = async (e: any, id: string) => {
-        e.preventDefault(); // Impede que abra a tática ao clicar no lixo
+        e.preventDefault();
         if (!confirm('Tens a certeza que queres apagar esta tática?')) return;
 
         const { error } = await supabase.from('drills').delete().eq('id', id);
@@ -111,11 +115,15 @@ export default function Dashboard() {
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <h1 className="text-3xl font-bold text-white">Olá, {user?.user_metadata?.full_name || 'Treinador'}</h1>
+
+                            {/* Botão Perfil */}
                             <Link href="/dashboard/perfil">
                                 <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full border border-slate-700 text-slate-400 hover:text-white transition" title="Editar Perfil">
                                     <User size={18} />
                                 </button>
                             </Link>
+
+                            {/* Botão Backoffice (Só aparece se isAdmin for true) */}
                             {isAdmin && (
                                 <Link href="/admin">
                                     <button className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-full text-xs font-bold uppercase tracking-wider transition">
@@ -128,16 +136,23 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex gap-3 flex-wrap">
-                        <Link href="/dashboard/alunos">
-                            <button className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition border border-slate-700 shadow-lg">
-                                <Users size={20} className="text-blue-400" /> <span className="hidden sm:inline">Alunos</span>
-                            </button>
-                        </Link>
-                        <Link href="/dashboard/planos">
-                            <button className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition border border-slate-700 shadow-lg">
-                                <Layers size={20} className="text-purple-400" /> <span className="hidden sm:inline">Planos</span>
-                            </button>
-                        </Link>
+                        {/* Botões de Treinador (Só aparecem se isCoach for true) */}
+                        {isCoach && (
+                            <>
+                                <Link href="/dashboard/alunos">
+                                    <button className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition border border-slate-700 shadow-lg">
+                                        <Users size={20} className="text-blue-400" /> <span className="hidden sm:inline">Alunos</span>
+                                    </button>
+                                </Link>
+                                <Link href="/dashboard/planos">
+                                    <button className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition border border-slate-700 shadow-lg">
+                                        <Layers size={20} className="text-purple-400" /> <span className="hidden sm:inline">Planos</span>
+                                    </button>
+                                </Link>
+                            </>
+                        )}
+
+                        {/* Botão Nova Tática (Todos veem) */}
                         <Link href="/dashboard/tatica">
                             <button className="bg-green-500 hover:bg-green-400 text-slate-900 font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition shadow-lg shadow-green-500/20">
                                 <Plus size={20} /> <span className="hidden sm:inline">Nova Tática</span>
@@ -146,28 +161,58 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* --- KPIS / RESUMO RÁPIDO (NOVO BLOCO) --- */}
+                {/* --- KPIS (Só mostramos os cartões de gestão se for treinador) --- */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-in slide-in-from-bottom-4 duration-500">
-                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 hover:border-blue-500/50 transition">
-                        <div className="p-3 bg-blue-500/10 text-blue-500 rounded-lg">
-                            <Users size={24} />
-                        </div>
-                        <div>
-                            <p className="text-slate-400 text-xs uppercase font-bold">Meus Alunos</p>
-                            <p className="text-2xl font-black text-white">{stats.students}</p>
-                        </div>
-                    </div>
 
-                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 hover:border-purple-500/50 transition">
-                        <div className="p-3 bg-purple-500/10 text-purple-500 rounded-lg">
-                            <Layers size={24} />
+                    {/* Cartão ALUNOS (Só treinador) */}
+                    {isCoach ? (
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 hover:border-blue-500/50 transition">
+                            <div className="p-3 bg-blue-500/10 text-blue-500 rounded-lg">
+                                <Users size={24} />
+                            </div>
+                            <div>
+                                <p className="text-slate-400 text-xs uppercase font-bold">Meus Alunos</p>
+                                <p className="text-2xl font-black text-white">{stats.students}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-slate-400 text-xs uppercase font-bold">Planos de Aula</p>
-                            <p className="text-2xl font-black text-white">{stats.plans}</p>
+                    ) : (
+                        // Placeholder para Jogador (ou podes remover este bloco else)
+                        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 flex items-center gap-4 opacity-50">
+                            <div className="p-3 bg-slate-700 text-slate-500 rounded-lg">
+                                <Lock size={24} />
+                            </div>
+                            <div>
+                                <p className="text-slate-500 text-xs uppercase font-bold">Modo Jogador</p>
+                                <p className="text-sm text-slate-400">Torna-te treinador</p>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
+                    {/* Cartão PLANOS (Só treinador) */}
+                    {isCoach ? (
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 hover:border-purple-500/50 transition">
+                            <div className="p-3 bg-purple-500/10 text-purple-500 rounded-lg">
+                                <Layers size={24} />
+                            </div>
+                            <div>
+                                <p className="text-slate-400 text-xs uppercase font-bold">Planos de Aula</p>
+                                <p className="text-2xl font-black text-white">{stats.plans}</p>
+                            </div>
+                        </div>
+                    ) : (
+                        // Placeholder vazio ou outra estatística para jogador
+                        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 flex items-center gap-4 opacity-50">
+                            <div className="p-3 bg-slate-700 text-slate-500 rounded-lg">
+                                <Lock size={24} />
+                            </div>
+                            <div>
+                                <p className="text-slate-500 text-xs uppercase font-bold">Planos</p>
+                                <p className="text-sm text-slate-400">Área restrita</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Cartão BIBLIOTECA (Todos veem) */}
                     <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 hover:border-green-500/50 transition">
                         <div className="p-3 bg-green-500/10 text-green-500 rounded-lg">
                             <LayoutDashboard size={24} />
@@ -179,7 +224,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* SEARCH BAR */}
+                {/* SEARCH BAR (Igual) */}
                 <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 mb-8 space-y-4 sticky top-20 z-10 shadow-xl">
                     <div className="relative">
                         <Search className="absolute left-3 top-3 text-slate-500" size={20} />
@@ -204,7 +249,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* GRELHA DE TÁTICAS */}
+                {/* GRELHA DE TÁTICAS (Igual) */}
                 {filteredDrills.length === 0 ? (
                     <div className="text-center py-20 bg-slate-800/30 rounded-2xl border border-slate-700 border-dashed">
                         <Filter size={48} className="mx-auto text-slate-600 mb-4" />
@@ -216,7 +261,6 @@ export default function Dashboard() {
                         {filteredDrills.map((drill) => (
                             <Link href={`/dashboard/tatica?id=${drill.id}`} key={drill.id}>
                                 <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 hover:border-green-500/50 transition group flex flex-col hover:shadow-2xl hover:shadow-black/50 hover:-translate-y-1 h-full">
-
                                     {/* 1. THUMBNAIL */}
                                     <div className="relative h-52 w-full bg-slate-900 border-b border-slate-700 group-hover:opacity-90 transition p-2">
                                         {drill.image_url ? (
