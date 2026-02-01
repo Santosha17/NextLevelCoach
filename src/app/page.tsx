@@ -131,10 +131,6 @@ export default function Home() {
                     </div>
                 </div>
             </section>
-
-            <footer className="py-8 text-center text-slate-600 text-sm">
-                &copy; {new Date().getFullYear()} Coach Next Level. Todos os direitos reservados.
-            </footer>
         </div>
     );
 }
