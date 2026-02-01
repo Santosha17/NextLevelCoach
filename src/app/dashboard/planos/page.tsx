@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@/src/lib/supabase';
 import { Layers, Plus, Trash2, Calendar, CheckSquare, Square, FileDown, Loader2, ArrowUp, ArrowDown, X } from 'lucide-react';
 import jsPDF from 'jspdf';
+import QRCode from 'qrcode'; // <--- BIBLIOTECA NOVA
 
 // --- HELPERS ---
 const getBase64FromUrl = async (url: string): Promise<string> => {
@@ -35,7 +36,6 @@ export default function PlansPage() {
     // Estados do Novo Plano
     const [newPlanTitle, setNewPlanTitle] = useState('');
     const [newPlanDesc, setNewPlanDesc] = useState('');
-    // AQUI MUDOU: selectedDrills agora guarda a ordem visual. É a "playlist".
     const [selectedDrills, setSelectedDrills] = useState<string[]>([]);
 
     useEffect(() => {
@@ -49,9 +49,10 @@ export default function PlansPage() {
         setCoachName(user.user_metadata?.full_name || 'Treinador');
 
         // Buscar Planos
+        // IMPORTANTE: Adicionei 'video_url' na query dos drills dentro do plano
         const { data: plansData } = await supabase
             .from('plans')
-            .select('*, plan_items(position, drill:drills(title, category, description, image_url))')
+            .select('*, plan_items(position, drill:drills(title, category, description, image_url, video_url))')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
 
@@ -62,7 +63,7 @@ export default function PlansPage() {
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
 
-        // ORDENAÇÃO NO FRONTEND (Garante que aparecem na ordem certa)
+        // ORDENAÇÃO NO FRONTEND
         if (plansData) {
             plansData.forEach(plan => {
                 if (plan.plan_items) {
@@ -76,7 +77,7 @@ export default function PlansPage() {
         setLoading(false);
     };
 
-    // --- FUNÇÕES DE ORDENAÇÃO (NOVO) ---
+    // --- FUNÇÕES DE ORDENAÇÃO ---
     const moveDrill = (index: number, direction: 'up' | 'down') => {
         const newOrder = [...selectedDrills];
         if (direction === 'up' && index > 0) {
@@ -91,19 +92,18 @@ export default function PlansPage() {
         if (selectedDrills.includes(id)) {
             setSelectedDrills(selectedDrills.filter(d => d !== id));
         } else {
-            setSelectedDrills([...selectedDrills, id]); // Adiciona ao fim da lista
+            setSelectedDrills([...selectedDrills, id]);
         }
     };
 
     const getDrillTitle = (id: string) => drills.find(d => d.id === id)?.title || 'Desconhecido';
 
-    // --- CRIAR PLANO (COM ORDEM) ---
+    // --- CRIAR PLANO ---
     const createPlan = async (e: React.FormEvent) => {
         e.preventDefault();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // 1. Criar o Plano (Cabeçalho)
         const { data: plan, error } = await supabase
             .from('plans')
             .insert({ title: newPlanTitle, description: newPlanDesc, user_id: user.id })
@@ -112,12 +112,11 @@ export default function PlansPage() {
 
         if (error) return alert(error.message);
 
-        // 2. Inserir Itens COM POSIÇÃO
         if (selectedDrills.length > 0) {
             const itemsToInsert = selectedDrills.map((drillId, index) => ({
                 plan_id: plan.id,
                 drill_id: drillId,
-                position: index // <--- AQUI SALVAMOS A ORDEM (0, 1, 2...)
+                position: index
             }));
             await supabase.from('plan_items').insert(itemsToInsert);
         }
@@ -135,14 +134,15 @@ export default function PlansPage() {
         setPlans(plans.filter(p => p.id !== id));
     };
 
-    // --- GERAR PDF ---
+    // --- GERAR PDF COM QR CODE ---
     const downloadPlanPDF = async (plan: any) => {
         setIsGeneratingPdf(plan.id);
         try {
             const doc = new jsPDF();
-            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageWidth = doc.internal.pageSize.getWidth(); // ~210mm
             let yPos = 20;
 
+            // Cabeçalho
             doc.setFontSize(24); doc.setTextColor(15, 23, 42);
             doc.text(plan.title || 'Plano de Treino', 20, yPos);
             yPos += 8;
@@ -155,51 +155,97 @@ export default function PlansPage() {
             }
             yPos += 15; doc.setDrawColor(203, 213, 225); doc.line(20, yPos, pageWidth - 20, yPos); yPos += 15;
 
+            // Loop pelos Exercícios
             if (plan.plan_items && plan.plan_items.length > 0) {
                 for (let i = 0; i < plan.plan_items.length; i++) {
                     const item = plan.plan_items[i];
                     const drill = item.drill;
 
-                    if (yPos > 240) { doc.addPage(); yPos = 20; }
+                    // Nova página se não couber (ajuste de margem de segurança)
+                    if (yPos > 230) { doc.addPage(); yPos = 20; }
 
+                    // 1. Título e Categoria
                     doc.setFontSize(14); doc.setTextColor(15, 23, 42);
                     doc.text(`${i + 1}. ${drill.title}`, 20, yPos);
                     doc.setFontSize(9); doc.setTextColor(34, 197, 94);
                     doc.text(drill.category?.toUpperCase() || 'GERAL', 20, yPos + 6);
                     yPos += 12;
 
+                    // 2. Layout (Imagem Esq | Texto Centro | QR Dir)
                     let textX = 20;
+                    let textAreaWidth = 170; // Largura total disponível
+
+                    // Se tiver Imagem (Lado Esquerdo)
                     if (drill.image_url) {
                         try {
                             const imgData = await getBase64FromUrl(drill.image_url);
                             if(imgData) {
-                                doc.addImage(imgData, 'PNG', 20, yPos, 45, 80);
+                                doc.addImage(imgData, 'PNG', 20, yPos, 45, 80); // Imagem maior
                                 doc.setDrawColor(226, 232, 240); doc.rect(20, yPos, 45, 80);
-                                textX = 75;
+                                textX = 70; // Empurra texto para a direita
+                                textAreaWidth -= 55;
                             }
                         } catch (err) { console.error(err); }
                     }
 
+                    // Se tiver Vídeo (Lado Direito - QR Code)
+                    if (drill.video_url) {
+                        try {
+                            // Gera QR Code
+                            const qrDataUrl = await QRCode.toDataURL(drill.video_url, { margin: 1 });
+                            const qrSize = 35;
+                            const qrX = pageWidth - 20 - qrSize; // Encostado à direita
+
+                            doc.addImage(qrDataUrl, 'PNG', qrX, yPos, qrSize, qrSize);
+
+                            // Link clicável no PDF (caso seja digital)
+                            doc.link(qrX, yPos, qrSize, qrSize, { url: drill.video_url });
+
+                            // Texto "SCAN ME"
+                            doc.setFontSize(8); doc.setTextColor(100, 116, 139);
+                            doc.text("VER VÍDEO ▶", qrX + (qrSize/2), yPos + qrSize + 4, { align: 'center' });
+
+                            // Ajusta largura do texto para não bater no QR Code
+                            textAreaWidth -= (qrSize + 5);
+
+                        } catch (err) { console.error("Erro QR", err); }
+                    }
+
+                    // 3. Descrição (Texto)
                     doc.setFontSize(10); doc.setTextColor(71, 85, 105);
-                    const desc = drill.description || 'Sem notas.';
-                    const maxWidth = drill.image_url ? 115 : 170;
-                    const lines = doc.splitTextToSize(desc, maxWidth);
+                    const desc = drill.description || 'Sem notas técnicas.';
+                    const lines = doc.splitTextToSize(desc, textAreaWidth);
                     doc.text(lines, textX, yPos + 5);
 
-                    const blockHeight = drill.image_url ? 90 : (lines.length * 5) + 20;
+                    // 4. Calcular altura do bloco para o próximo item
+                    const textHeight = (lines.length * 5) + 20;
+                    const imgHeight = drill.image_url ? 90 : 0;
+                    const qrHeight = drill.video_url ? 50 : 0;
+
+                    // A altura do bloco é o maior elemento (Texto, Img ou QR)
+                    const blockHeight = Math.max(textHeight, imgHeight, qrHeight);
+
+                    // Linha separadora suave
+                    doc.setDrawColor(241, 245, 249);
+                    doc.line(20, yPos + blockHeight - 5, pageWidth - 20, yPos + blockHeight - 5);
+
                     yPos += blockHeight;
                 }
             } else {
-                doc.setFontSize(10); doc.text('Sem exercícios.', 20, yPos);
+                doc.setFontSize(10); doc.text('Sem exercícios neste plano.', 20, yPos);
             }
 
+            // Rodapé
             const pageCount = doc.getNumberOfPages();
             for(let i = 1; i <= pageCount; i++) {
                 doc.setPage(i); doc.setFontSize(8); doc.setTextColor(148, 163, 184);
-                doc.text(`Página ${i} de ${pageCount} • ${coachName} @ Coach Next Level`, pageWidth / 2, 290, { align: 'center' });
+                doc.text(`Página ${i} de ${pageCount} • Gerado por Coach Next Level`, pageWidth / 2, 290, { align: 'center' });
             }
             doc.save(`Plano_${plan.title.replace(/\s+/g, '_')}.pdf`);
-        } catch (error) { console.error(error); alert('Erro ao gerar PDF.'); }
+        } catch (error) {
+            console.error(error);
+            alert('Erro ao gerar PDF. Verifica se tens exercícios com links válidos.');
+        }
         finally { setIsGeneratingPdf(null); }
     };
 

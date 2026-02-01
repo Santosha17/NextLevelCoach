@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { createClient } from '../../lib/supabase';
+import { createClient } from '@/src/lib/supabase'; // Confirma se o caminho é este
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, LayoutDashboard, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, LayoutDashboard } from 'lucide-react';
 
 const CATEGORIES = ['Todas', 'Geral', 'Aquecimento', 'Ataque', 'Defesa', 'Saída de Parede', 'Volei', 'Bandeja/Víbora', 'Jogo de Pés'];
 
@@ -16,6 +16,12 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
     const [isAdmin, setIsAdmin] = useState(false);
+
+    // Estado para contagens (KPIs)
+    const [stats, setStats] = useState({
+        students: 0,
+        plans: 0
+    });
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todas');
@@ -33,14 +39,35 @@ export default function Dashboard() {
             const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
             if (profile && profile.is_admin) setIsAdmin(true);
 
-            // 2. Buscar Táticas (Incluindo image_url)
-            const { data } = await supabase
-                .from('drills')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
+            // 2. Buscar Táticas, Contagem de Alunos e Contagem de Planos (Em paralelo)
+            const [drillsRes, studentsRes, plansRes] = await Promise.all([
+                // Buscar exercícios (precisamos dos dados todos para a lista)
+                supabase
+                    .from('drills')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false }),
 
-            if (data) setDrills(data);
+                // Contar alunos (apenas o número)
+                supabase
+                    .from('students')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', user.id),
+
+                // Contar planos (apenas o número)
+                supabase
+                    .from('plans')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+            ]);
+
+            if (drillsRes.data) setDrills(drillsRes.data);
+
+            setStats({
+                students: studentsRes.count || 0,
+                plans: plansRes.count || 0
+            });
+
             setLoading(false);
         };
         getData();
@@ -66,7 +93,7 @@ export default function Dashboard() {
 
     const getCategoryColor = (cat: string) => {
         switch(cat) {
-            case 'Ataque': return 'bg-red-500/90 text-white border-red-500'; // Cores mais sólidas para o badge sobre a imagem
+            case 'Ataque': return 'bg-red-500/90 text-white border-red-500';
             case 'Defesa': return 'bg-blue-500/90 text-white border-blue-500';
             case 'Aquecimento': return 'bg-yellow-500/90 text-slate-900 border-yellow-500';
             default: return 'bg-slate-700/90 text-white border-slate-600';
@@ -119,6 +146,39 @@ export default function Dashboard() {
                     </div>
                 </div>
 
+                {/* --- KPIS / RESUMO RÁPIDO (NOVO BLOCO) --- */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 hover:border-blue-500/50 transition">
+                        <div className="p-3 bg-blue-500/10 text-blue-500 rounded-lg">
+                            <Users size={24} />
+                        </div>
+                        <div>
+                            <p className="text-slate-400 text-xs uppercase font-bold">Meus Alunos</p>
+                            <p className="text-2xl font-black text-white">{stats.students}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 hover:border-purple-500/50 transition">
+                        <div className="p-3 bg-purple-500/10 text-purple-500 rounded-lg">
+                            <Layers size={24} />
+                        </div>
+                        <div>
+                            <p className="text-slate-400 text-xs uppercase font-bold">Planos de Aula</p>
+                            <p className="text-2xl font-black text-white">{stats.plans}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 hover:border-green-500/50 transition">
+                        <div className="p-3 bg-green-500/10 text-green-500 rounded-lg">
+                            <LayoutDashboard size={24} />
+                        </div>
+                        <div>
+                            <p className="text-slate-400 text-xs uppercase font-bold">Biblioteca</p>
+                            <p className="text-2xl font-black text-white">{drills.length}</p>
+                        </div>
+                    </div>
+                </div>
+
                 {/* SEARCH BAR */}
                 <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 mb-8 space-y-4 sticky top-20 z-10 shadow-xl">
                     <div className="relative">
@@ -144,7 +204,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* GRELHA DE TÁTICAS (VISUAL NOVO) */}
+                {/* GRELHA DE TÁTICAS */}
                 {filteredDrills.length === 0 ? (
                     <div className="text-center py-20 bg-slate-800/30 rounded-2xl border border-slate-700 border-dashed">
                         <Filter size={48} className="mx-auto text-slate-600 mb-4" />
@@ -157,23 +217,21 @@ export default function Dashboard() {
                             <Link href={`/dashboard/tatica?id=${drill.id}`} key={drill.id}>
                                 <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 hover:border-green-500/50 transition group flex flex-col hover:shadow-2xl hover:shadow-black/50 hover:-translate-y-1 h-full">
 
-                                    {/* 1. THUMBNAIL (A Imagem do Campo) */}
+                                    {/* 1. THUMBNAIL */}
                                     <div className="relative h-52 w-full bg-slate-900 border-b border-slate-700 group-hover:opacity-90 transition p-2">
                                         {drill.image_url ? (
                                             <img
                                                 src={drill.image_url}
                                                 alt={drill.title}
-                                                className="w-full h-full object-contain" // object-contain mostra o campo todo sem cortar
+                                                className="w-full h-full object-contain"
                                             />
                                         ) : (
-                                            // Fallback para táticas antigas sem imagem
                                             <div className="w-full h-full flex flex-col items-center justify-center gap-2 opacity-20">
                                                 <LayoutDashboard size={40} className="text-slate-400" />
                                                 <span className="text-xs text-slate-500">Sem pré-visualização</span>
                                             </div>
                                         )}
 
-                                        {/* Badge da Categoria Sobreposta */}
                                         <div className="absolute top-3 left-3">
                                             <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border backdrop-blur-md shadow-lg ${getCategoryColor(drill.category || 'Geral')}`}>
                                                 {drill.category || 'Geral'}

@@ -2,15 +2,16 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { createClient } from '../lib/supabase';
-import { UserCircle, LogOut, Menu, X } from 'lucide-react'; // <--- Adicionei ícones Menu e X
+import { useRouter, usePathname } from 'next/navigation';
+import { createClient } from '@/src/lib/supabase';
+import { UserCircle, LogOut, Menu, X, LayoutDashboard, Layers, Users } from 'lucide-react';
 
 const Navbar = () => {
     const [user, setUser] = useState<any>(null);
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // <--- Novo estado para o menu
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const supabase = createClient();
     const router = useRouter();
+    const pathname = usePathname();
 
     useEffect(() => {
         const getUser = async () => {
@@ -20,11 +21,7 @@ const Navbar = () => {
         getUser();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (session) {
-                setUser(session.user);
-            } else {
-                setUser(null);
-            }
+            setUser(session?.user ?? null);
         });
 
         return () => subscription.unsubscribe();
@@ -32,59 +29,74 @@ const Navbar = () => {
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
-        setIsMobileMenuOpen(false); // Fecha o menu se sair
+        setIsMobileMenuOpen(false);
+        router.push('/login');
         router.refresh();
     };
 
     return (
-        <div className="sticky top-0 z-50">
-            <nav className="w-full py-3 px-6 flex justify-between items-center bg-slate-900 border-b border-slate-800">
+        <nav className="sticky top-0 z-50 w-full bg-slate-900 border-b border-slate-800">
+            {/* Layout a ocupar a largura toda */}
+            <div className="w-full px-6 md:px-10 py-4 flex justify-between items-center">
 
-                {/* 1. LOGO */}
-                <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition group z-50">
-                    <img
-                        src="/logo.png"
-                        alt="CNL Logo"
-                        className="h-10 w-auto object-contain sm:h-14" // h-10 no telemóvel, h-14 no PC
-                    />
-                    <span className="text-white font-bold text-xl tracking-wider hidden sm:block group-hover:text-green-400 transition-colors">
+                {/* 1. LOGO (À Esquerda) */}
+                <Link href="/" className="hover:opacity-80 transition z-50">
+                    <div className="font-black text-xl tracking-tighter italic text-white flex items-center gap-2 cursor-pointer">
                         COACH NEXT LEVEL
-                    </span>
+                    </div>
                 </Link>
 
-                {/* 2. MENU CENTRAL (APENAS PC - hidden em mobile) */}
-                <div className="hidden md:flex gap-6 text-slate-400 text-sm font-medium items-center">
-                    <Link href="/dashboard" className="hover:text-green-400 transition">Dashboard</Link>
-                    <Link href="/dashboard/planos" className="hover:text-green-400 transition">Planos de Aula</Link>
-                    <Link href="/community" className="hover:text-green-400 transition">Comunidade</Link>
-                </div>
+                {/* 2. MENU CENTRAL (Desktop) */}
+                {user && (
+                    <div className="hidden md:flex gap-8 text-sm font-bold text-slate-400 items-center">
+                        <Link
+                            href="/dashboard"
+                            className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard' ? 'text-green-500' : ''}`}
+                        >
+                            <LayoutDashboard size={16} /> Dashboard
+                        </Link>
+                        <Link
+                            href="/dashboard/planos"
+                            className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard/planos' ? 'text-green-500' : ''}`}
+                        >
+                            <Layers size={16} /> Planos
+                        </Link>
+                        <Link
+                            href="/dashboard/alunos"
+                            className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard/alunos' ? 'text-green-500' : ''}`}
+                        >
+                            <Users size={16} /> Alunos
+                        </Link>
+                    </div>
+                )}
 
-                {/* 3. LADO DIREITO (User + Menu Mobile) */}
-                <div className="flex items-center gap-3">
+                {/* 3. LADO DIREITO (User Actions) */}
+                <div className="flex items-center gap-4">
 
-                    {/* Botões de Utilizador (Sempre visíveis ou adaptados) */}
                     {user ? (
-                        <div className="flex items-center gap-3">
-                            {/* Nome (Escondido em telemóveis muito pequenos para poupar espaço) */}
+                        <div className="flex items-center gap-4">
+                            {/* Nome do Treinador */}
                             <div className="hidden sm:flex flex-col items-end">
-                                <span className="text-slate-200 text-sm font-bold">
+                                <span className="text-white text-sm font-bold leading-tight">
                                     {user.user_metadata?.full_name || 'Treinador'}
                                 </span>
-                                <span className="text-green-500 text-[10px] uppercase tracking-wider font-bold">
-                                    Pro Account
+                                <span className="text-green-500 text-[10px] uppercase font-black tracking-widest">
+                                    FREE
                                 </span>
                             </div>
 
+                            {/* Botão Logout */}
                             <button
                                 onClick={handleLogout}
-                                className="p-2 bg-slate-800 text-red-400 rounded-lg border border-slate-700 hover:bg-red-500/10 hover:border-red-500 transition"
-                                title="Sair da Conta"
+                                className="p-2 bg-slate-800 text-slate-400 rounded-lg border border-slate-700 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/50 transition"
+                                title="Sair"
                             >
                                 <LogOut size={18} />
                             </button>
                         </div>
                     ) : (
-                        <Link href="/login" className="hidden sm:block"> {/* Login normal esconde no mobile para não encavalitar com o menu */}
+                        // BOTÃO DE ENTRAR
+                        <Link href="/login" className="hidden sm:block">
                             <button className="flex items-center gap-2 px-4 py-2 bg-green-500 text-slate-900 rounded-lg font-bold hover:bg-green-400 transition shadow-lg shadow-green-500/20">
                                 <UserCircle size={18} />
                                 <span>Entrar</span>
@@ -92,7 +104,7 @@ const Navbar = () => {
                         </Link>
                     )}
 
-                    {/* 4. BOTÃO HAMBÚRGUER (Só aparece no telemóvel) */}
+                    {/* Botão Mobile (Hambúrguer) */}
                     <button
                         className="md:hidden p-2 text-slate-300 hover:text-white transition"
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -100,49 +112,58 @@ const Navbar = () => {
                         {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                     </button>
                 </div>
-            </nav>
+            </div>
 
-            {/* 5. GAVETA DO MENU MOBILE (Abre quando clicas no hambúrguer) */}
+            {/* 4. MENU MOBILE (Dropdown) */}
             {isMobileMenuOpen && (
-                <div className="md:hidden absolute top-full left-0 w-full bg-slate-800 border-b border-slate-700 shadow-xl animate-[slideDown_0.2s_ease-out]">
+                <div className="md:hidden absolute top-full left-0 w-full bg-slate-900 border-b border-slate-800 shadow-2xl animate-in slide-in-from-top-2">
                     <div className="flex flex-col p-4 space-y-2">
-                        <Link
-                            href="/dashboard"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className="p-3 rounded-lg hover:bg-slate-700 text-slate-200 font-medium flex items-center gap-3"
-                        >
-                            Dashboard
-                        </Link>
-                        <Link
-                            href="/dashboard/planos"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className="p-3 rounded-lg hover:bg-slate-700 text-slate-200 font-medium flex items-center gap-3"
-                        >
-                            Planos de Aula
-                        </Link>
-                        <Link
-                            href="/community"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className="p-3 rounded-lg hover:bg-slate-700 text-slate-200 font-medium flex items-center gap-3"
-                        >
-                            Comunidade
-                        </Link>
-
-                        {/* Se não estiver logado, mostra o botão de entrar aqui também */}
-                        {!user && (
+                        {user ? (
+                            <>
+                                <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    Menu Treinador
+                                </div>
+                                <MobileLink href="/dashboard" icon={<LayoutDashboard size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
+                                    Dashboard
+                                </MobileLink>
+                                <MobileLink href="/dashboard/planos" icon={<Layers size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
+                                    Planos de Aula
+                                </MobileLink>
+                                <MobileLink href="/dashboard/alunos" icon={<Users size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
+                                    Meus Alunos
+                                </MobileLink>
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-full text-left p-3 rounded-lg hover:bg-red-500/10 text-red-400 font-bold flex items-center gap-3 mt-4 border border-transparent hover:border-red-500/20 transition"
+                                >
+                                    <LogOut size={18} /> Sair da Conta
+                                </button>
+                            </>
+                        ) : (
                             <Link
                                 href="/login"
                                 onClick={() => setIsMobileMenuOpen(false)}
-                                className="mt-2 p-3 rounded-lg bg-green-500 text-slate-900 font-bold flex justify-center items-center gap-2"
+                                className="p-3 rounded-lg bg-green-500 text-slate-900 font-bold flex justify-center items-center gap-2"
                             >
-                                <UserCircle size={18} /> Entrar / Criar Conta
+                                <UserCircle size={18} /> Entrar na Conta
                             </Link>
                         )}
                     </div>
                 </div>
             )}
-        </div>
+        </nav>
     );
 };
+
+// Componente auxiliar para links mobile ficarem mais limpos
+const MobileLink = ({ href, children, icon, onClick }: any) => (
+    <Link
+        href={href}
+        onClick={onClick}
+        className="p-3 rounded-lg hover:bg-slate-800 text-slate-200 font-medium flex items-center gap-3 transition border border-transparent hover:border-slate-700"
+    >
+        {icon} {children}
+    </Link>
+);
 
 export default Navbar;
