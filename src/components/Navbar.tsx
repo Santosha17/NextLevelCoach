@@ -58,9 +58,15 @@ const Navbar = () => {
     }, [supabase]);
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
-        setIsMobileMenuOpen(false);
+        // 1. Limpar estado local imediatamente para feedback visual
+        setUser(null);
         setIsCoach(false);
+        setIsMobileMenuOpen(false);
+
+        // 2. Fazer logout no Supabase
+        await supabase.auth.signOut();
+
+        // 3. Redirecionar para login
         router.push('/login');
         router.refresh();
     };
@@ -85,7 +91,7 @@ const Navbar = () => {
                             <LayoutDashboard size={16} /> Dashboard
                         </Link>
                         <Link
-                            href="/dashboard/comunidade"
+                            href="/comunidade"
                             className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard/comunidade' ? 'text-green-500' : ''}`}
                         >
                             <MessageCircle size={16} /> Comunidade
@@ -158,7 +164,7 @@ const Navbar = () => {
                                 <MobileLink href="/dashboard" icon={<LayoutDashboard size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
                                     Dashboard
                                 </MobileLink>
-                                <MobileLink href="/dashboard/comunidade" icon={<MessageCircle size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
+                                <MobileLink href="/comunidade" icon={<MessageCircle size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
                                     Comunidade
                                 </MobileLink>
                                 {isCoach && (
