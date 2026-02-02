@@ -16,43 +16,85 @@ import {
 } from 'lucide-react';
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
+type ProfileRow = {
+    role: 'player' | 'coach';
+    plan_tier?: string | null;
+};
+
 const Navbar = () => {
     const [user, setUser] = useState<any>(null);
     const [isCoach, setIsCoach] = useState(false);
+    const [planTier, setPlanTier] = useState<'free' | 'pro' | 'elite' | 'other'>(
+        'free'
+    );
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const supabase = createClient();
     const router = useRouter();
     const pathname = usePathname();
 
+    const mapPlanTier = (raw?: string | null): 'free' | 'pro' | 'elite' | 'other' => {
+        if (!raw) return 'free';
+        const v = raw.toLowerCase();
+        if (v === 'pro') return 'pro';
+        if (v === 'elite') return 'elite';
+        if (v === 'free') return 'free';
+        return 'other';
+    };
+
+    const getPlanBadgeClasses = (tier: 'free' | 'pro' | 'elite' | 'other') => {
+        switch (tier) {
+            case 'pro':
+                return 'bg-indigo-500/15 text-indigo-300 border-indigo-500/40';
+            case 'elite':
+                return 'bg-amber-400/15 text-amber-300 border-amber-400/40';
+            case 'other':
+                return 'bg-slate-500/15 text-slate-300 border-slate-500/40';
+            case 'free':
+            default:
+                return 'bg-slate-700 text-slate-300 border-slate-500/60';
+        }
+    };
+
     useEffect(() => {
         let isMounted = true;
+
+        const loadProfileFromSession = async (session: Session | null) => {
+            if (!session?.user) {
+                if (!isMounted) return;
+                setUser(null);
+                setIsCoach(false);
+                setPlanTier('free');
+                return;
+            }
+
+            if (!isMounted) return;
+            setUser(session.user);
+
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('role, plan_tier')
+                .eq('id', session.user.id)
+                .maybeSingle<ProfileRow>();
+
+            if (!isMounted) return;
+
+            if (error) {
+                console.error('Erro a carregar perfil:', error);
+                setIsCoach(false);
+                setPlanTier('free');
+                return;
+            }
+
+            setIsCoach(data?.role === 'coach');
+            setPlanTier(mapPlanTier(data?.plan_tier));
+        };
 
         const checkUser = async () => {
             const {
                 data: { session },
             } = await supabase.auth.getSession();
-
-            if (!isMounted) return;
-
-            if (session?.user) {
-                setUser(session.user);
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('role')
-                    .eq('id', session.user.id)
-                    .maybeSingle();
-
-                if (!isMounted) return;
-
-                if (error) {
-                    console.error('Erro a carregar role do perfil:', error);
-                }
-                setIsCoach(data?.role === 'coach');
-            } else {
-                setUser(null);
-                setIsCoach(false);
-            }
+            await loadProfileFromSession(session);
         };
 
         checkUser();
@@ -62,25 +104,7 @@ const Navbar = () => {
         } = supabase.auth.onAuthStateChange(
             async (_event: AuthChangeEvent, session: Session | null) => {
                 if (!isMounted) return;
-
-                setUser(session?.user ?? null);
-
-                if (session?.user) {
-                    const { data, error } = await supabase
-                        .from('profiles')
-                        .select('role')
-                        .eq('id', session.user.id)
-                        .maybeSingle();
-
-                    if (!isMounted) return;
-
-                    if (error) {
-                        console.error('Erro a carregar role do perfil (auth change):', error);
-                    }
-                    setIsCoach(data?.role === 'coach');
-                } else {
-                    setIsCoach(false);
-                }
+                await loadProfileFromSession(session);
             }
         );
 
@@ -95,9 +119,19 @@ const Navbar = () => {
         await supabase.auth.signOut();
         setUser(null);
         setIsCoach(false);
+        setPlanTier('free');
         router.push('/login');
         router.refresh();
     };
+
+    const planLabel =
+        planTier === 'free'
+            ? 'FREE'
+            : planTier === 'pro'
+                ? 'PRO'
+                : planTier === 'elite'
+                    ? 'ELITE'
+                    : 'PLANO';
 
     return (
         <nav className="sticky top-0 z-50 w-full bg-slate-900 border-b border-slate-800">
@@ -156,9 +190,18 @@ const Navbar = () => {
                 <span className="text-white text-sm font-bold leading-tight">
                   {user.user_metadata?.full_name || 'Utilizador'}
                 </span>
-                                <span className="text-green-500 text-[10px] uppercase font-black tracking-widest text-right">
-                  {isCoach ? 'TREINADOR' : 'JOGADOR'}
-                </span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-green-500 text-[10px] uppercase font-black tracking-widest text-right">
+                    {isCoach ? 'TREINADOR' : 'JOGADOR'}
+                  </span>
+                                    <span
+                                        className={`text-[9px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full border ${getPlanBadgeClasses(
+                                            planTier
+                                        )}`}
+                                    >
+                    {planLabel}
+                  </span>
+                                </div>
                             </div>
                             <button
                                 onClick={handleLogout}
@@ -190,7 +233,7 @@ const Navbar = () => {
                         {user ? (
                             <>
                                 <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                    Menu {isCoach ? 'Treinador' : 'Jogador'}
+                                    Menu {isCoach ? 'Treinador' : 'Jogador'} · Plano {planLabel}
                                 </div>
                                 <MobileLink
                                     href="/dashboard"
