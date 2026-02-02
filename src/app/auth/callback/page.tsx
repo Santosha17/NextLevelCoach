@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense, useRef } from 'react';
+import { useEffect, useState, Suspense, useRef, useMemo } from 'react';
 import { createClient } from '@/src/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
@@ -8,15 +8,17 @@ import { Loader2 } from 'lucide-react';
 function AuthCallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const supabase = createClient();
+
+    // FIX: useMemo para garantir que o cliente é estável e não re-ativa o useEffect
+    const supabase = useMemo(() => createClient(), []);
+
     const [msg, setMsg] = useState('A verificar segurança...');
 
-    // Proteção para não correr 2x (React Strict Mode)
+    // Proteção para não correr 2x
     const processedRef = useRef(false);
 
     useEffect(() => {
         const handleAuthCallback = async () => {
-            // Se já processámos este pedido, ignora para não dar erro de "código já usado"
             if (processedRef.current) return;
             processedRef.current = true;
 
@@ -25,60 +27,49 @@ function AuthCallbackContent() {
             const error = searchParams.get('error');
             const error_description = searchParams.get('error_description');
 
-            // 1. Se houver erro na URL (ex: link cancelado)
             if (error) {
                 setMsg(`Erro: ${error_description || 'Ocorreu um erro.'}`);
-                return; // Pára aqui
+                return;
             }
 
-            // 2. Se houver código, tentamos trocar pela sessão
             if (code) {
                 try {
                     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
                     if (error) {
-                        // TRUQUE IMPORTANTE:
-                        // Se der erro ao trocar o código (ex: código já usado),
-                        // verificamos se o utilizador JÁ tem sessão ativa.
-                        // Se tiver, ignoramos o erro e avançamos.
+                        // Tentar recuperar sessão existente se o código falhar
                         const { data: { session } } = await supabase.auth.getSession();
-
                         if (session) {
                             console.log('Sessão recuperada, a redirecionar...');
                             router.push(next);
                             router.refresh();
                             return;
                         }
-
-                        // Se não tem sessão e deu erro, lançamos a exceção
                         throw error;
                     }
 
-                    // Sucesso na troca do código
+                    // Sucesso
                     router.push(next);
                     router.refresh();
 
                 } catch (error) {
                     setMsg('O link expirou ou é inválido.');
                     console.error(error);
-                    // Não mandamos para o login automaticamente para o utilizador poder ler a mensagem
                 }
             } else {
-                // 3. NÃO HÁ CÓDIGO NA URL
-                // Antes de mandar para o login, verificamos se já está logado
+                // Sem código, verificar sessão
                 const { data: { session } } = await supabase.auth.getSession();
-
                 if (session) {
-                    // Já está logado, vai para o dashboard
                     router.push(next);
                 } else {
-                    // Não está logado nem tem código, vai para login
                     router.push('/login');
                 }
             }
         };
 
         handleAuthCallback();
+
+        // Dependências estáveis agora
     }, [router, searchParams, supabase]);
 
     return (
