@@ -4,11 +4,11 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/src/lib/supabase';
-import { UserCircle, LogOut, Menu, X, LayoutDashboard, Layers, Users } from 'lucide-react';
+import { UserCircle, LogOut, Menu, X, LayoutDashboard, Layers, Users, MessageCircle } from 'lucide-react';
 
 const Navbar = () => {
     const [user, setUser] = useState<any>(null);
-    const [isCoach, setIsCoach] = useState(false); // <--- NOVO: Estado para verificar função
+    const [isCoach, setIsCoach] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const supabase = createClient();
@@ -17,12 +17,10 @@ const Navbar = () => {
 
     useEffect(() => {
         const getUserAndProfile = async () => {
-            // 1. Obter User Autenticado
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
 
             if (user) {
-                // 2. Verificar se é Treinador na tabela profiles
                 const { data: profile } = await supabase
                     .from('profiles')
                     .select('role')
@@ -35,12 +33,10 @@ const Navbar = () => {
 
         getUserAndProfile();
 
-        // Ouvir alterações de sessão
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             setUser(session?.user ?? null);
 
             if (session?.user) {
-                // Reverificar role ao fazer login trocar sessão
                 const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
                 setIsCoach(data?.role === 'coach');
             } else {
@@ -61,10 +57,9 @@ const Navbar = () => {
 
     return (
         <nav className="sticky top-0 z-50 w-full bg-slate-900 border-b border-slate-800">
-            {/* Layout a ocupar a largura toda */}
             <div className="w-full px-6 md:px-10 py-4 flex justify-between items-center">
 
-                {/* 1. LOGO (À Esquerda) */}
+                {/* 1. LOGO */}
                 <Link href="/" className="hover:opacity-80 transition z-50">
                     <div className="font-black text-xl tracking-tighter italic text-white flex items-center gap-2 cursor-pointer">
                         COACH NEXT LEVEL
@@ -79,6 +74,13 @@ const Navbar = () => {
                             className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard' ? 'text-green-500' : ''}`}
                         >
                             <LayoutDashboard size={16} /> Dashboard
+                        </Link>
+
+                        <Link
+                            href="/dashboard/comunidade"
+                            className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard/comunidade' ? 'text-green-500' : ''}`}
+                        >
+                            <MessageCircle size={16} /> Comunidade
                         </Link>
 
                         {/* SÓ MOSTRA SE FOR TREINADOR */}
@@ -106,18 +108,15 @@ const Navbar = () => {
 
                     {user ? (
                         <div className="flex items-center gap-4">
-                            {/* Nome do Treinador */}
                             <div className="hidden sm:flex flex-col items-end">
                                 <span className="text-white text-sm font-bold leading-tight">
                                     {user.user_metadata?.full_name || 'Utilizador'}
                                 </span>
-                                {/* Badge Dinâmico */}
                                 <span className="text-green-500 text-[10px] uppercase font-black tracking-widest text-right">
                                     {isCoach ? 'TREINADOR' : 'JOGADOR'}
                                 </span>
                             </div>
 
-                            {/* Botão Logout */}
                             <button
                                 onClick={handleLogout}
                                 className="p-2 bg-slate-800 text-slate-400 rounded-lg border border-slate-700 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/50 transition"
@@ -127,7 +126,6 @@ const Navbar = () => {
                             </button>
                         </div>
                     ) : (
-                        // BOTÃO DE ENTRAR
                         <Link href="/login" className="hidden sm:block">
                             <button className="flex items-center gap-2 px-4 py-2 bg-green-500 text-slate-900 rounded-lg font-bold hover:bg-green-400 transition shadow-lg shadow-green-500/20">
                                 <UserCircle size={18} />
@@ -136,7 +134,6 @@ const Navbar = () => {
                         </Link>
                     )}
 
-                    {/* Botão Mobile (Hambúrguer) */}
                     <button
                         className="md:hidden p-2 text-slate-300 hover:text-white transition"
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -146,7 +143,7 @@ const Navbar = () => {
                 </div>
             </div>
 
-            {/* 4. MENU MOBILE (Dropdown) */}
+            {/* 4. MENU MOBILE */}
             {isMobileMenuOpen && (
                 <div className="md:hidden absolute top-full left-0 w-full bg-slate-900 border-b border-slate-800 shadow-2xl animate-in slide-in-from-top-2">
                     <div className="flex flex-col p-4 space-y-2">
@@ -158,8 +155,9 @@ const Navbar = () => {
                                 <MobileLink href="/dashboard" icon={<LayoutDashboard size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
                                     Dashboard
                                 </MobileLink>
-
-                                {/* SÓ MOSTRA SE FOR TREINADOR */}
+                                <MobileLink href="/dashboard/comunidade" icon={<MessageCircle size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
+                                    Comunidade
+                                </MobileLink>
                                 {isCoach && (
                                     <>
                                         <MobileLink href="/dashboard/planos" icon={<Layers size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
@@ -194,7 +192,6 @@ const Navbar = () => {
     );
 };
 
-// Componente auxiliar para links mobile ficarem mais limpos
 const MobileLink = ({ href, children, icon, onClick }: any) => (
     <Link
         href={href}
