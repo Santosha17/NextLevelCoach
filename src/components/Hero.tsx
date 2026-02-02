@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 const Hero = () => {
     return (
@@ -9,20 +10,31 @@ const Hero = () => {
             </div>
 
             <h1 className="text-4xl md:text-6xl font-extrabold text-white mb-6 max-w-3xl leading-tight">
-                Leva os teus alunos ao <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600">Next Level</span>
+                Leva os teus alunos ao{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600">
+          Next Level
+        </span>
             </h1>
 
             <p className="text-slate-400 text-lg md:text-xl max-w-2xl mb-8">
-                A ferramenta digital definitiva para desenhar táticas, planear aulas e partilhar exercícios. Adeus papel, olá profissionalismo.
+                A ferramenta digital definitiva para desenhar táticas, planear aulas e
+                partilhar exercícios. Adeus papel, olá profissionalismo.
             </p>
 
             <div className="flex gap-4">
-                <button className="px-8 py-3 bg-green-500 text-slate-900 rounded-lg font-bold hover:bg-green-400 transition flex items-center gap-2 shadow-[0_0_20px_rgba(74,222,128,0.3)]">
-                    Começar Grátis <ArrowRight size={18} />
-                </button>
-                <button className="px-8 py-3 bg-slate-800 text-white rounded-lg font-bold border border-slate-700 hover:bg-slate-700 transition">
-                    Ver Demo
-                </button>
+                {/* CTA principal: leva ao login/registro */}
+                <Link href="/login">
+                    <button className="px-8 py-3 bg-green-500 text-slate-900 rounded-lg font-bold hover:bg-green-400 transition flex items-center gap-2 shadow-[0_0_20px_rgba(74,222,128,0.3)]">
+                        Começar Grátis <ArrowRight size={18} />
+                    </button>
+                </Link>
+
+                {/* Demo: comunidade (mas protegida via middleware) */}
+                <Link href="/comunidade">
+                    <button className="px-8 py-3 bg-slate-800 text-white rounded-lg font-bold border border-slate-700 hover:bg-slate-700 transition">
+                        Ver Demo
+                    </button>
+                </Link>
             </div>
         </section>
     );
