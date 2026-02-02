@@ -22,7 +22,6 @@ export default function ProfilePage() {
 
     useEffect(() => {
         let isMounted = true;
-
         const loadProfile = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
@@ -50,7 +49,6 @@ export default function ProfilePage() {
                 setLoading(false);
             }
         };
-
         loadProfile();
         return () => { isMounted = false; };
     }, [supabase, router]);
@@ -148,10 +146,12 @@ export default function ProfilePage() {
 
                         {/* Campo Nome */}
                         <div>
-                            <label className="block text-slate-400 text-xs font-bold uppercase mb-2">Nome Completo</label>
+                            <label htmlFor="fullName" className="block text-slate-400 text-xs font-bold uppercase mb-2">Nome Completo</label>
                             <div className="relative">
                                 <User className="absolute left-3 top-3.5 text-slate-500" size={20} />
                                 <input
+                                    id="fullName"
+                                    name="fullName"
                                     type="text"
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
                                     value={fullName}
@@ -162,10 +162,12 @@ export default function ProfilePage() {
 
                         {/* Campo Telemóvel */}
                         <div>
-                            <label className="block text-slate-400 text-xs font-bold uppercase mb-2">Telemóvel</label>
+                            <label htmlFor="phone" className="block text-slate-400 text-xs font-bold uppercase mb-2">Telemóvel</label>
                             <div className="relative">
                                 <Phone className="absolute left-3 top-3.5 text-slate-500" size={20} />
                                 <input
+                                    id="phone"
+                                    name="phone"
                                     type="tel"
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
                                     value={phone}
@@ -178,10 +180,12 @@ export default function ProfilePage() {
                         {/* Campo Licença */}
                         {role === 'coach' && (
                             <div className="animate-in fade-in slide-in-from-top-2 duration-300 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-                                <label className="block text-green-400 text-xs font-bold uppercase mb-2 flex items-center gap-2">
+                                <label htmlFor="license" className="block text-green-400 text-xs font-bold uppercase mb-2 flex items-center gap-2">
                                     <Shield size={14} /> Nº Licença FPP
                                 </label>
                                 <input
+                                    id="license"
+                                    name="license"
                                     type="text"
                                     className="w-full bg-slate-800 border border-slate-600 rounded-lg py-3 px-4 text-white focus:border-green-500 outline-none transition"
                                     value={license}
