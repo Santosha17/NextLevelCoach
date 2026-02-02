@@ -11,7 +11,7 @@ const Navbar = () => {
     const [isCoach, setIsCoach] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    // FIX CRÍTICO: useMemo evita que o supabase seja recriado a cada render
+    // useMemo para evitar loops infinitos
     const supabase = useMemo(() => createClient(), []);
 
     const router = useRouter();
@@ -58,15 +58,19 @@ const Navbar = () => {
     }, [supabase]);
 
     const handleLogout = async () => {
-        // 1. Limpar estado local imediatamente para feedback visual
+        // 1. Limpeza Visual Imediata (Para o user sentir que saiu logo)
         setUser(null);
         setIsCoach(false);
         setIsMobileMenuOpen(false);
 
-        // 2. Fazer logout no Supabase
-        await supabase.auth.signOut();
+        // 2. Limpeza de Sessão Backend
+        try {
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error("Erro ao sair:", error);
+        }
 
-        // 3. Redirecionar para login
+        // 3. Redirecionamento e Refresh para garantir limpeza de cache
         router.push('/login');
         router.refresh();
     };
@@ -90,12 +94,15 @@ const Navbar = () => {
                         >
                             <LayoutDashboard size={16} /> Dashboard
                         </Link>
+
+                        {/* Link corrigido para /comunidade */}
                         <Link
                             href="/comunidade"
-                            className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard/comunidade' ? 'text-green-500' : ''}`}
+                            className={`hover:text-white transition flex items-center gap-2 ${pathname === '/comunidade' ? 'text-green-500' : ''}`}
                         >
                             <MessageCircle size={16} /> Comunidade
                         </Link>
+
                         {isCoach && (
                             <>
                                 <Link
@@ -164,6 +171,7 @@ const Navbar = () => {
                                 <MobileLink href="/dashboard" icon={<LayoutDashboard size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
                                     Dashboard
                                 </MobileLink>
+                                {/* Link Mobile corrigido */}
                                 <MobileLink href="/comunidade" icon={<MessageCircle size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
                                     Comunidade
                                 </MobileLink>
