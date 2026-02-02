@@ -65,7 +65,8 @@ export default function PlansPage() {
 
         // ORDENAÇÃO NO FRONTEND
         if (plansData) {
-            plansData.forEach(plan => {
+            // CORREÇÃO AQUI: Adicionei (plan: any) para resolver o erro TS
+            plansData.forEach((plan: any) => {
                 if (plan.plan_items) {
                     plan.plan_items.sort((a: any, b: any) => (a.position || 0) - (b.position || 0));
                 }
