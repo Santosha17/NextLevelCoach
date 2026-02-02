@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react'; // Sem useMemo
-import { createClient } from '@/src/lib/supabase';
+import React, { useEffect, useState } from 'react';
+import { createClient } from '@/src/lib/supabase'; // A tua versão singleton
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, LayoutDashboard, Lock, ArrowRight, Loader2 } from 'lucide-react';
@@ -9,7 +9,8 @@ import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, La
 const CATEGORIES = ['Todas', 'Geral', 'Aquecimento', 'Ataque', 'Defesa', 'Saída de Parede', 'Volei', 'Bandeja/Víbora', 'Jogo de Pés'];
 
 export default function Dashboard() {
-    const supabase = createClient(); // Instância Singleton segura
+    // 1. Singleton: Agora é seguro chamar direto, sem useMemo
+    const supabase = createClient();
     const router = useRouter();
 
     const [drills, setDrills] = useState<any[]>([]);
@@ -26,9 +27,10 @@ export default function Dashboard() {
 
         const getData = async () => {
             try {
-                // 1. Obter Sessão (Mais seguro que getUser para evitar chamadas de rede desnecessárias)
+                // 1. Obter Sessão (Mais seguro que getUser para evitar loops de rede)
                 const { data: { session }, error: authError } = await supabase.auth.getSession();
 
+                // Se não houver sessão, manda para login e PÁRA A EXECUÇÃO
                 if (authError || !session?.user) {
                     if (isMounted) router.push('/login');
                     return;
@@ -49,7 +51,7 @@ export default function Dashboard() {
                     setIsCoach(profile.role === 'coach');
                 }
 
-                // 3. Buscar Dados (Paralelo)
+                // 3. Buscar Dados em Paralelo
                 const [drillsRes, studentsRes, plansRes] = await Promise.all([
                     supabase.from('drills').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
                     supabase.from('students').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id),
@@ -67,6 +69,7 @@ export default function Dashboard() {
             } catch (error) {
                 console.error("Erro no Dashboard:", error);
             } finally {
+                // CRÍTICO: Isto garante que o loading desaparece SEMPRE
                 if (isMounted) setLoading(false);
             }
         };
@@ -74,11 +77,11 @@ export default function Dashboard() {
         getData();
 
         return () => { isMounted = false; };
-    }, []); // Array vazio é seguro agora
 
-    // ... (MANTÉM AS FUNÇÕES AUXILIARES E O RETURN IGUAL AO QUE JÁ TINHAS) ...
+        // Dependências vazias = corre apenas 1 vez ao montar a página
+    }, []);
 
-    // --- FUNÇÕES AUXILIARES (Para referência, não precisas mudar se já tens) ---
+    // --- AÇÕES ---
     const deleteDrill = async (e: any, id: string) => {
         e.preventDefault();
         if (!confirm('Apagar esta tática?')) return;
@@ -86,6 +89,7 @@ export default function Dashboard() {
         if (!error) setDrills(drills.filter(d => d.id !== id));
     };
 
+    // --- RENDER ---
     const filteredDrills = drills.filter(drill => {
         const matchesSearch = drill.title.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = selectedCategory === 'Todas' || (drill.category || 'Geral') === selectedCategory;
@@ -110,7 +114,6 @@ export default function Dashboard() {
 
     return (
         <div className="min-h-screen bg-slate-900 p-6 md:p-10">
-            {/* ... COPIA O TEU JSX DO DASHBOARD AQUI, É IGUAL ... */}
             <div className="max-w-6xl mx-auto">
                 {/* CABEÇALHO */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
