@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@/src/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Shield, CheckCircle, ArrowLeft, Search, User, Mail, AlertCircle } from 'lucide-react';
+import { Shield, CheckCircle, ArrowLeft, Search, User, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminPage() {
@@ -15,50 +15,75 @@ export default function AdminPage() {
     const [search, setSearch] = useState('');
 
     useEffect(() => {
+        let isMounted = true; // Previne erros de atualização se saíres da página
+
         const checkAccessAndLoad = async () => {
-            // 1. Verificar quem está logado
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                router.push('/login');
-                return;
+            try {
+                // 1. Verificar quem está logado
+                const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+                if (authError || !user) {
+                    if (isMounted) router.push('/login');
+                    return;
+                }
+
+                // 2. O GRANDE TESTE DE SEGURANÇA 🛡️
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('is_admin')
+                    .eq('id', user.id)
+                    .maybeSingle(); // Usa maybeSingle para evitar erros 406
+
+                if (profileError) {
+                    console.error("Erro ao ler perfil:", profileError.message);
+                }
+
+                // SE NÃO FOR ADMIN, É EXPULSO
+                if (!profile || profile.is_admin !== true) {
+                    console.warn("Acesso negado. A redirecionar...");
+                    if (isMounted) router.push('/dashboard');
+                    return;
+                }
+
+                // 3. Se passou no teste, carrega a lista
+                if (isMounted) await fetchUsers();
+
+            } catch (err) {
+                console.error("Erro crítico no Admin:", err);
+                if (isMounted) router.push('/dashboard');
+            } finally {
+                // GARANTE QUE O LOADING PÁRA SEMPRE
+                if (isMounted) setLoading(false);
             }
-
-            // 2. O GRANDE TESTE DE SEGURANÇA 🛡️
-            // Vamos à base de dados ver se este user tem a flag is_admin = true
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('is_admin')
-                .eq('id', user.id)
-                .single();
-
-            // SE NÃO FOR ADMIN (mesmo que seja coach), É EXPULSO
-            if (!profile || profile.is_admin !== true) {
-                console.warn("Tentativa de acesso não autorizado.");
-                router.push('/dashboard');
-                return;
-            }
-
-            // 3. Se passou no teste, carrega a lista de todos os utilizadores
-            fetchUsers();
         };
 
         checkAccessAndLoad();
+
+        return () => { isMounted = false; };
     }, [router, supabase]);
 
     const fetchUsers = async () => {
-        // Graças às tuas Policies RLS, só o Admin consegue fazer este select sem filtro
-        const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .order('created_at', { ascending: false });
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-        if (data) setUsers(data);
-        setLoading(false);
+            if (error) throw error;
+            if (data) setUsers(data);
+        } catch (err) {
+            console.error("Erro ao buscar utilizadores:", err);
+            alert("Erro ao carregar lista de utilizadores.");
+        }
     };
 
     // Função para Aprovar/Bloquear Treinadores
     const toggleVerification = async (userId: string, currentStatus: boolean) => {
         if (!confirm(currentStatus ? 'Revogar acesso de treinador?' : 'Aprovar este treinador?')) return;
+
+        // Atualização otimista (UI muda logo)
+        const updatedUsers = users.map(u => u.id === userId ? { ...u, verified_coach: !currentStatus } : u);
+        setUsers(updatedUsers);
 
         const { error } = await supabase
             .from('profiles')
@@ -66,10 +91,9 @@ export default function AdminPage() {
             .eq('id', userId);
 
         if (error) {
-            alert('Erro: ' + error.message);
-        } else {
-            // Atualiza a tabela localmente para veres o visto verde aparecer logo
-            setUsers(users.map(u => u.id === userId ? { ...u, verified_coach: !currentStatus } : u));
+            alert('Erro ao atualizar: ' + error.message);
+            // Reverter se der erro
+            setUsers(users);
         }
     };
 
@@ -79,7 +103,12 @@ export default function AdminPage() {
         (u.email || '').toLowerCase().includes(search.toLowerCase())
     );
 
-    if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-red-500 font-bold animate-pulse">A verificar credenciais de Admin...</div>;
+    if (loading) return (
+        <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-red-500 gap-4">
+            <Loader2 className="animate-spin w-10 h-10" />
+            <p className="font-bold animate-pulse">A verificar credenciais de Admin...</p>
+        </div>
+    );
 
     return (
         <div className="min-h-screen bg-slate-900 p-6 md:p-10 text-white">
