@@ -4,6 +4,8 @@ import "./globals.css";
 import Navbar from "@/src/components/Navbar";
 import Footer from "../components/Footer";
 
+export const runtime = 'edge';
+
 const inter = Inter({
     subsets: ["latin"],
     display: "swap",
