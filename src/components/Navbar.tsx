@@ -16,11 +16,6 @@ import {
 } from 'lucide-react';
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
-type ProfileRow = {
-    role: 'player' | 'coach';
-    plan_tier?: string | null;
-};
-
 const Navbar = () => {
     const [user, setUser] = useState<any>(null);
     const [isCoach, setIsCoach] = useState(false);
@@ -75,7 +70,7 @@ const Navbar = () => {
                 .from('profiles')
                 .select('role, plan_tier')
                 .eq('id', session.user.id)
-                .maybeSingle<ProfileRow>();
+                .maybeSingle();
 
             if (!isMounted) return;
 
@@ -86,8 +81,10 @@ const Navbar = () => {
                 return;
             }
 
-            setIsCoach(data?.role === 'coach');
-            setPlanTier(mapPlanTier(data?.plan_tier));
+            const profile = data as { role?: string | null; plan_tier?: string | null };
+
+            setIsCoach(profile.role === 'coach');
+            setPlanTier(mapPlanTier(profile.plan_tier));
         };
 
         const checkUser = async () => {
