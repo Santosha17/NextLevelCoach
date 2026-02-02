@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/src/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Shield, CheckCircle, ArrowLeft, Search, User, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminPage() {
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const router = useRouter();
 
     const [loading, setLoading] = useState(true);
@@ -15,11 +15,10 @@ export default function AdminPage() {
     const [search, setSearch] = useState('');
 
     useEffect(() => {
-        let isMounted = true; // Previne erros de atualização se saíres da página
+        let isMounted = true;
 
         const checkAccessAndLoad = async () => {
             try {
-                // 1. Verificar quem está logado
                 const { data: { user }, error: authError } = await supabase.auth.getUser();
 
                 if (authError || !user) {
@@ -27,32 +26,26 @@ export default function AdminPage() {
                     return;
                 }
 
-                // 2. O GRANDE TESTE DE SEGURANÇA 🛡️
                 const { data: profile, error: profileError } = await supabase
                     .from('profiles')
                     .select('is_admin')
                     .eq('id', user.id)
-                    .maybeSingle(); // Usa maybeSingle para evitar erros 406
+                    .maybeSingle();
 
-                if (profileError) {
-                    console.error("Erro ao ler perfil:", profileError.message);
-                }
+                if (profileError) console.error("Erro ao ler perfil:", profileError.message);
 
-                // SE NÃO FOR ADMIN, É EXPULSO
                 if (!profile || profile.is_admin !== true) {
-                    console.warn("Acesso negado. A redirecionar...");
+                    console.warn("Acesso negado.");
                     if (isMounted) router.push('/dashboard');
                     return;
                 }
 
-                // 3. Se passou no teste, carrega a lista
                 if (isMounted) await fetchUsers();
 
             } catch (err) {
                 console.error("Erro crítico no Admin:", err);
                 if (isMounted) router.push('/dashboard');
             } finally {
-                // GARANTE QUE O LOADING PÁRA SEMPRE
                 if (isMounted) setLoading(false);
             }
         };
@@ -60,7 +53,7 @@ export default function AdminPage() {
         checkAccessAndLoad();
 
         return () => { isMounted = false; };
-    }, [router, supabase]);
+    }, [supabase, router]);
 
     const fetchUsers = async () => {
         try {
@@ -73,15 +66,12 @@ export default function AdminPage() {
             if (data) setUsers(data);
         } catch (err) {
             console.error("Erro ao buscar utilizadores:", err);
-            alert("Erro ao carregar lista de utilizadores.");
         }
     };
 
-    // Função para Aprovar/Bloquear Treinadores
     const toggleVerification = async (userId: string, currentStatus: boolean) => {
         if (!confirm(currentStatus ? 'Revogar acesso de treinador?' : 'Aprovar este treinador?')) return;
 
-        // Atualização otimista (UI muda logo)
         const updatedUsers = users.map(u => u.id === userId ? { ...u, verified_coach: !currentStatus } : u);
         setUsers(updatedUsers);
 
@@ -92,12 +82,10 @@ export default function AdminPage() {
 
         if (error) {
             alert('Erro ao atualizar: ' + error.message);
-            // Reverter se der erro
-            setUsers(users);
+            setUsers(users); // Reverter em caso de erro
         }
     };
 
-    // Filtro simples
     const filteredUsers = users.filter(u =>
         (u.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
         (u.email || '').toLowerCase().includes(search.toLowerCase())
@@ -113,8 +101,6 @@ export default function AdminPage() {
     return (
         <div className="min-h-screen bg-slate-900 p-6 md:p-10 text-white">
             <div className="max-w-6xl mx-auto">
-
-                {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 border-b border-slate-800 pb-6">
                     <div className="flex items-center gap-4">
                         <Link href="/dashboard" className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition">
@@ -127,8 +113,6 @@ export default function AdminPage() {
                             <p className="text-slate-400 text-sm">Área restrita a Administradores.</p>
                         </div>
                     </div>
-
-                    {/* Barra de Pesquisa */}
                     <div className="relative w-full md:w-auto">
                         <Search className="absolute left-3 top-3 text-slate-500" size={18} />
                         <input
@@ -141,7 +125,6 @@ export default function AdminPage() {
                     </div>
                 </div>
 
-                {/* Tabela */}
                 <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
@@ -170,7 +153,6 @@ export default function AdminPage() {
                                             </div>
                                         </div>
                                     </td>
-
                                     <td className="p-5">
                                             <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${
                                                 u.role === 'coach'
@@ -180,11 +162,9 @@ export default function AdminPage() {
                                                 {u.role === 'coach' ? 'Treinador' : 'Jogador'}
                                             </span>
                                     </td>
-
                                     <td className="p-5 text-sm text-slate-400 font-mono">
                                         {u.license_number || '-'}
                                     </td>
-
                                     <td className="p-5">
                                         {u.role === 'coach' ? (
                                             u.verified_coach ? (
@@ -200,7 +180,6 @@ export default function AdminPage() {
                                             <span className="text-slate-600 text-xs">-</span>
                                         )}
                                     </td>
-
                                     <td className="p-5 text-right">
                                         {u.role === 'coach' && (
                                             <button
@@ -220,14 +199,12 @@ export default function AdminPage() {
                             </tbody>
                         </table>
                     </div>
-
                     {filteredUsers.length === 0 && (
                         <div className="p-10 text-center text-slate-500">
                             Nenhum utilizador encontrado.
                         </div>
                     )}
                 </div>
-
             </div>
         </div>
     );

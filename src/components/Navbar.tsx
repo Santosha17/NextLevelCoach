@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/src/lib/supabase';
@@ -11,41 +11,51 @@ const Navbar = () => {
     const [isCoach, setIsCoach] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    const supabase = createClient();
+    // FIX CRÍTICO: useMemo evita que o supabase seja recriado a cada render
+    const supabase = useMemo(() => createClient(), []);
+
     const router = useRouter();
     const pathname = usePathname();
 
     useEffect(() => {
+        let isMounted = true;
+
         const getUserAndProfile = async () => {
             const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
 
-            if (user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('role')
-                    .eq('id', user.id)
-                    .single();
+            if (isMounted) {
+                setUser(user);
+                if (user) {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', user.id)
+                        .maybeSingle();
 
-                setIsCoach(profile?.role === 'coach');
+                    if (isMounted) setIsCoach(profile?.role === 'coach');
+                }
             }
         };
 
         getUserAndProfile();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            setUser(session?.user ?? null);
-
-            if (session?.user) {
-                const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-                setIsCoach(data?.role === 'coach');
-            } else {
-                setIsCoach(false);
+            if (isMounted) {
+                setUser(session?.user ?? null);
+                if (session?.user) {
+                    const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
+                    if (isMounted) setIsCoach(data?.role === 'coach');
+                } else {
+                    if (isMounted) setIsCoach(false);
+                }
             }
         });
 
-        return () => subscription.unsubscribe();
-    }, []);
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
+    }, [supabase]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -58,7 +68,6 @@ const Navbar = () => {
     return (
         <nav className="sticky top-0 z-50 w-full bg-slate-900 border-b border-slate-800">
             <div className="w-full px-6 md:px-10 py-4 flex justify-between items-center">
-
                 {/* 1. LOGO */}
                 <Link href="/" className="hover:opacity-80 transition z-50">
                     <div className="font-black text-xl tracking-tighter italic text-white flex items-center gap-2 cursor-pointer">
@@ -75,15 +84,12 @@ const Navbar = () => {
                         >
                             <LayoutDashboard size={16} /> Dashboard
                         </Link>
-
                         <Link
                             href="/dashboard/comunidade"
                             className={`hover:text-white transition flex items-center gap-2 ${pathname === '/dashboard/comunidade' ? 'text-green-500' : ''}`}
                         >
                             <MessageCircle size={16} /> Comunidade
                         </Link>
-
-                        {/* SÓ MOSTRA SE FOR TREINADOR */}
                         {isCoach && (
                             <>
                                 <Link
@@ -105,7 +111,6 @@ const Navbar = () => {
 
                 {/* 3. LADO DIREITO (User Actions) */}
                 <div className="flex items-center gap-4">
-
                     {user ? (
                         <div className="flex items-center gap-4">
                             <div className="hidden sm:flex flex-col items-end">
@@ -116,7 +121,6 @@ const Navbar = () => {
                                     {isCoach ? 'TREINADOR' : 'JOGADOR'}
                                 </span>
                             </div>
-
                             <button
                                 onClick={handleLogout}
                                 className="p-2 bg-slate-800 text-slate-400 rounded-lg border border-slate-700 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/50 transition"
@@ -133,7 +137,6 @@ const Navbar = () => {
                             </button>
                         </Link>
                     )}
-
                     <button
                         className="md:hidden p-2 text-slate-300 hover:text-white transition"
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -168,7 +171,6 @@ const Navbar = () => {
                                         </MobileLink>
                                     </>
                                 )}
-
                                 <button
                                     onClick={handleLogout}
                                     className="w-full text-left p-3 rounded-lg hover:bg-red-500/10 text-red-400 font-bold flex items-center gap-3 mt-4 border border-transparent hover:border-red-500/20 transition"

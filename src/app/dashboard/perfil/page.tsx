@@ -1,67 +1,66 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/src/lib/supabase';
 import { User, Shield, Save, Loader2, Check, Phone, ArrowLeft, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function ProfilePage() {
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const router = useRouter();
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
 
-    // Dados do Formulário
     const [fullName, setFullName] = useState('');
     const [phone, setPhone] = useState('');
     const [role, setRole] = useState('player');
     const [license, setLicense] = useState('');
-    const [isVerified, setIsVerified] = useState(false); // <--- NOVO: Estado de verificação
+    const [isVerified, setIsVerified] = useState(false);
 
-    // 1. Carregar dados atuais
     useEffect(() => {
+        let isMounted = true;
+
         const loadProfile = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                router.push('/login');
+                if (isMounted) router.push('/login');
                 return;
             }
 
-            // Carregar perfil da tabela
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', user.id)
                 .single();
 
-            if (profile) {
-                setFullName(profile.full_name || '');
-                setPhone(profile.phone || '');
-                setRole(profile.role || 'player');
-                setLicense(profile.license_number || '');
-                setIsVerified(profile.verified_coach || false); // Carrega estado de aprovação
-            } else {
-                setFullName(user.user_metadata?.full_name || '');
-                setPhone(user.user_metadata?.phone || '');
+            if (isMounted) {
+                if (profile) {
+                    setFullName(profile.full_name || '');
+                    setPhone(profile.phone || '');
+                    setRole(profile.role || 'player');
+                    setLicense(profile.license_number || '');
+                    setIsVerified(profile.verified_coach || false);
+                } else {
+                    setFullName(user.user_metadata?.full_name || '');
+                    setPhone(user.user_metadata?.phone || '');
+                }
+                setLoading(false);
             }
-
-            setLoading(false);
         };
 
         loadProfile();
-    }, [router, supabase]);
+        return () => { isMounted = false; };
+    }, [supabase, router]);
 
-    // 2. Gravar Alterações
     const updateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
         setSuccess(false);
 
         try {
-            // Se for treinador, validar licença
             if (role === 'coach' && !license.trim()) {
                 alert('A Licença FPP é obrigatória para treinadores.');
                 setSaving(false);
@@ -71,17 +70,15 @@ export default function ProfilePage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Utilizador não encontrado');
 
-            // Atualizar Auth Metadata
             await supabase.auth.updateUser({
                 data: { full_name: fullName, phone: phone, license_number: license }
             });
 
-            // Atualizar Tabela Profiles (Nota: Não enviamos 'role' aqui para não permitir mudança forçada)
             const updates = {
                 id: user.id,
                 full_name: fullName,
                 phone: phone,
-                license_number: license, // Atualizamos a licença mas não o cargo
+                license_number: license,
                 updated_at: new Date().toISOString(),
             };
 
@@ -109,8 +106,6 @@ export default function ProfilePage() {
     return (
         <div className="min-h-screen bg-slate-900 p-6 md:p-10 text-white">
             <div className="max-w-2xl mx-auto">
-
-                {/* Header */}
                 <div className="flex items-center gap-4 mb-8 border-b border-slate-800 pb-4">
                     <Link href="/dashboard" className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 transition">
                         <ArrowLeft size={20} />
@@ -120,8 +115,7 @@ export default function ProfilePage() {
 
                 <div className="bg-slate-800 rounded-2xl border border-slate-700 p-8 shadow-xl">
                     <form onSubmit={updateProfile} className="space-y-6">
-
-                        {/* STATUS DA CONTA (NÃO EDITÁVEL) */}
+                        {/* STATUS DA CONTA */}
                         <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                             <div className="flex items-center gap-4">
                                 <div className={`p-3 rounded-full ${role === 'coach' ? 'bg-purple-500/10 text-purple-400' : 'bg-blue-500/10 text-blue-400'}`}>
@@ -133,8 +127,6 @@ export default function ProfilePage() {
                                         <p className="text-lg font-bold text-white capitalize">
                                             {role === 'coach' ? 'Treinador' : 'Jogador'}
                                         </p>
-
-                                        {/* Badge de Verificação (Só para Treinadores) */}
                                         {role === 'coach' && (
                                             isVerified ? (
                                                 <span className="flex items-center gap-1 text-[10px] bg-green-500/10 text-green-500 border border-green-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
@@ -149,7 +141,6 @@ export default function ProfilePage() {
                                     </div>
                                 </div>
                             </div>
-
                             <div className="text-slate-500" title="Contacta o suporte para mudar de cargo">
                                 <Lock size={18} />
                             </div>
@@ -184,7 +175,7 @@ export default function ProfilePage() {
                             </div>
                         </div>
 
-                        {/* Campo Licença (Só aparece para Treinadores, mas é editável para correções) */}
+                        {/* Campo Licença */}
                         {role === 'coach' && (
                             <div className="animate-in fade-in slide-in-from-top-2 duration-300 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
                                 <label className="block text-green-400 text-xs font-bold uppercase mb-2 flex items-center gap-2">
@@ -213,10 +204,8 @@ export default function ProfilePage() {
                             {saving ? <Loader2 className="animate-spin" /> : success ? <Check size={24} /> : <Save size={20} />}
                             <span>{success ? 'Dados Atualizados!' : (saving ? 'A guardar...' : 'Gravar Alterações')}</span>
                         </button>
-
                     </form>
                 </div>
-
             </div>
         </div>
     );

@@ -1,17 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/src/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, LayoutDashboard, Lock, ArrowRight } from 'lucide-react';
+import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, LayoutDashboard, Lock, ArrowRight, Loader2 } from 'lucide-react';
 
 const CATEGORIES = ['Todas', 'Geral', 'Aquecimento', 'Ataque', 'Defesa', 'Saída de Parede', 'Volei', 'Bandeja/Víbora', 'Jogo de Pés'];
 
 export default function Dashboard() {
-    // IMPORTANTE: Cria o cliente fora do useEffect para ser estável,
-    // mas a melhor prática é usá-lo dentro ou garantir que não muda.
-    const supabase = createClient();
+    // FIX CRÍTICO: useMemo
+    const supabase = useMemo(() => createClient(), []);
     const router = useRouter();
 
     const [drills, setDrills] = useState<any[]>([]);
@@ -43,7 +42,7 @@ export default function Dashboard() {
                     .from('profiles')
                     .select('is_admin, role')
                     .eq('id', user.id)
-                    .maybeSingle(); // Usa maybeSingle para não dar erro 406 se não existir
+                    .maybeSingle();
 
                 if (isMounted && profile) {
                     setIsAdmin(profile.is_admin === true);
@@ -51,12 +50,11 @@ export default function Dashboard() {
                 }
 
                 // 3. Buscar Dados
-                const drillsReq = supabase.from('drills').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-                const studentsReq = supabase.from('students').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
-                const plansReq = supabase.from('plans').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
-
-                // Executar em paralelo
-                const [drillsRes, studentsRes, plansRes] = await Promise.all([drillsReq, studentsReq, plansReq]);
+                const [drillsRes, studentsRes, plansRes] = await Promise.all([
+                    supabase.from('drills').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+                    supabase.from('students').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+                    supabase.from('plans').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+                ]);
 
                 if (isMounted) {
                     if (drillsRes.data) setDrills(drillsRes.data);
@@ -69,7 +67,6 @@ export default function Dashboard() {
             } catch (error) {
                 console.error("Erro no Dashboard:", error);
             } finally {
-                // ISTO É O QUE PÁRA O LOADING ETERNO
                 if (isMounted) setLoading(false);
             }
         };
@@ -77,11 +74,7 @@ export default function Dashboard() {
         getData();
 
         return () => { isMounted = false; };
-
-        // --- AQUI ESTÁ A CORREÇÃO DO LOOP ---
-        // Removemos [supabase, router] e deixamos vazio []
-        // O ESlint pode reclamar, mas isto pára o loop.
-    }, []);
+    }, [supabase, router]);
 
     // --- AÇÕES ---
     const deleteDrill = async (e: any, id: string) => {
@@ -228,8 +221,3 @@ export default function Dashboard() {
         </div>
     );
 }
-
-// Pequeno componente Loader2 se não tiveres importado do lucide-react
-const Loader2 = ({ className }: { className?: string }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-);
