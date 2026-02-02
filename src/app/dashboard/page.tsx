@@ -33,6 +33,7 @@ const CATEGORIES = [
 ];
 
 export default function Dashboard() {
+    // A chamada createClient() agora retorna a instância singleton estável
     const supabase = createClient();
     const router = useRouter();
 
@@ -50,6 +51,7 @@ export default function Dashboard() {
 
         const getData = async () => {
             try {
+                // 1. Verificar Sessão
                 const {
                     data: { session },
                     error: authError,
@@ -58,14 +60,16 @@ export default function Dashboard() {
                 if (!isMounted) return;
 
                 if (authError || !session?.user) {
-                    console.error("Sem sessão no Dashboard:", authError);
-                    router.push("/login");
+                    console.error("Sem sessão no Dashboard ou erro:", authError);
+                    // Redirecionar e parar a execução aqui
+                    if (isMounted) router.push("/login");
                     return;
                 }
 
                 const currentUser = session.user;
-                setUser(currentUser);
+                if (isMounted) setUser(currentUser);
 
+                // 2. Carregar Perfil para Permissões
                 const { data: profile, error: profileError } = await supabase
                     .from("profiles")
                     .select("is_admin, role")
@@ -76,11 +80,12 @@ export default function Dashboard() {
                     console.error("Erro a carregar perfil:", profileError);
                 }
 
-                if (profile) {
+                if (isMounted && profile) {
                     setIsAdmin(profile.is_admin === true);
                     setIsCoach(profile.role === "coach");
                 }
 
+                // 3. Carregar Dados em Paralelo (Drills, Alunos, Planos)
                 const [drillsRes, studentsRes, plansRes] = await Promise.all([
                     supabase
                         .from("drills")
@@ -99,27 +104,25 @@ export default function Dashboard() {
 
                 if (!isMounted) return;
 
+                // Processar resultados
                 if (drillsRes.error) {
                     console.error("Erro a carregar drills:", drillsRes.error);
                 } else if (drillsRes.data) {
                     setDrills(drillsRes.data);
                 }
 
-                if (studentsRes.error) {
-                    console.error("Erro a carregar students:", studentsRes.error);
-                }
-
-                if (plansRes.error) {
-                    console.error("Erro a carregar plans:", plansRes.error);
-                }
+                if (studentsRes.error) console.error("Erro a carregar students:", studentsRes.error);
+                if (plansRes.error) console.error("Erro a carregar plans:", plansRes.error);
 
                 setStats({
                     students: studentsRes.count || 0,
                     plans: plansRes.count || 0,
                 });
+
             } catch (error) {
-                console.error("Erro no Dashboard:", error);
+                console.error("Erro crítico no Dashboard:", error);
             } finally {
+                // Garante que o loading pára sempre, exceto se o componente desmontou
                 if (isMounted) setLoading(false);
             }
         };
@@ -129,14 +132,28 @@ export default function Dashboard() {
         return () => {
             isMounted = false;
         };
-    }, [router, supabase]);
+    }, []); // Array vazio: corre apenas uma vez ao montar (ideal com singleton)
+
+    // --- AÇÕES ---
 
     const deleteDrill = async (e: any, id: string) => {
         e.preventDefault();
         if (!confirm("Apagar esta tática?")) return;
-        const { error } = await supabase.from("drills").delete().eq("id", id);
-        if (!error) setDrills(drills.filter((d) => d.id !== id));
+
+        try {
+            const { error } = await supabase.from("drills").delete().eq("id", id);
+            if (error) {
+                console.error("Erro ao apagar:", error);
+                alert("Erro ao apagar tática.");
+            } else {
+                setDrills(drills.filter((d) => d.id !== id));
+            }
+        } catch (err) {
+            console.error("Erro ao apagar:", err);
+        }
     };
+
+    // --- FILTROS E RENDERIZAÇÃO ---
 
     const filteredDrills = drills.filter((drill) => {
         const matchesSearch = drill.title
@@ -150,24 +167,21 @@ export default function Dashboard() {
 
     const getCategoryColor = (cat: string) => {
         switch (cat) {
-            case "Ataque":
-                return "bg-red-500/90 text-white border-red-500";
-            case "Defesa":
-                return "bg-blue-500/90 text-white border-blue-500";
-            case "Aquecimento":
-                return "bg-yellow-500/90 text-slate-900 border-yellow-500";
-            default:
-                return "bg-slate-700/90 text-white border-slate-600";
+            case "Ataque": return "bg-red-500/90 text-white border-red-500";
+            case "Defesa": return "bg-blue-500/90 text-white border-blue-500";
+            case "Aquecimento": return "bg-yellow-500/90 text-slate-900 border-yellow-500";
+            default: return "bg-slate-700/90 text-white border-slate-600";
         }
     };
 
-    if (loading)
+    if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-green-500 gap-4">
                 <Loader2 className="animate-spin w-10 h-10" />
                 <p>A carregar...</p>
             </div>
         );
+    }
 
     return (
         <div className="min-h-screen bg-slate-900 p-6 md:p-10">
@@ -207,6 +221,7 @@ export default function Dashboard() {
 
                 {/* Cartões */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                    {/* Cartão de Alunos */}
                     {isCoach ? (
                         <Link href="/dashboard/alunos">
                             <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex items-center justify-between hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 transition group cursor-pointer h-full">
@@ -242,6 +257,7 @@ export default function Dashboard() {
                         </div>
                     )}
 
+                    {/* Cartão de Planos */}
                     {isCoach ? (
                         <Link href="/dashboard/planos">
                             <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex items-center justify-between hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10 transition group cursor-pointer h-full">
@@ -277,6 +293,7 @@ export default function Dashboard() {
                         </div>
                     )}
 
+                    {/* Cartão de Biblioteca */}
                     <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex items-center justify-between hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/10 transition group h-full">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-green-500/10 text-green-500 rounded-xl group-hover:scale-110 transition">
@@ -294,13 +311,10 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Search e filtros */}
+                {/* Search e Filtros */}
                 <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 mb-8 space-y-4 sticky top-4 z-30 shadow-2xl shadow-black/50">
                     <div className="relative">
-                        <Search
-                            className="absolute left-3 top-3 text-slate-500"
-                            size={20}
-                        />
+                        <Search className="absolute left-3 top-3 text-slate-500" size={20} />
                         <input
                             type="text"
                             placeholder="Pesquisar..."
@@ -326,6 +340,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
+                {/* Lista de Drills */}
                 {filteredDrills.length === 0 ? (
                     <div className="text-center py-20 bg-slate-800/30 rounded-2xl border border-slate-700 border-dashed">
                         <Filter size={48} className="mx-auto text-slate-600 mb-4" />
@@ -355,18 +370,14 @@ export default function Dashboard() {
                                                     className="text-slate-400"
                                                 />
                                                 <span className="text-xs text-slate-500">
-                          Sem pré-visualização
-                        </span>
+                                                    Sem pré-visualização
+                                                </span>
                                             </div>
                                         )}
                                         <div className="absolute top-3 left-3">
-                      <span
-                          className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border backdrop-blur-md shadow-lg ${getCategoryColor(
-                              drill.category || "Geral"
-                          )}`}
-                      >
-                        {drill.category || "Geral"}
-                      </span>
+                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border backdrop-blur-md shadow-lg ${getCategoryColor(drill.category || "Geral")}`}>
+                                                {drill.category || "Geral"}
+                                            </span>
                                         </div>
                                     </div>
                                     <div className="p-4 flex-1 flex flex-col">
