@@ -72,7 +72,9 @@ export default function ProfilePage() {
                 } else {
                     setFullName(user.user_metadata?.full_name || '');
                     setPhone(user.user_metadata?.phone || '');
-                    setRole((user.user_metadata?.role as 'coach' | 'player') || 'player');
+                    setRole(
+                        (user.user_metadata?.role as 'coach' | 'player') || 'player'
+                    );
                 }
             } catch (e) {
                 console.error('Erro inesperado ao carregar perfil:', e);
@@ -111,6 +113,7 @@ export default function ProfilePage() {
 
             const user = session.user;
 
+            // Atualizar metadados de auth (não mexe na tabela profiles)
             const { error: authUpdateError } = await supabase.auth.updateUser({
                 data: {
                     full_name: fullName,
@@ -131,7 +134,9 @@ export default function ProfilePage() {
                 updated_at: new Date().toISOString(),
             };
 
-            const { error: dbError } = await supabase.from('profiles').upsert(updates);
+            const { error: dbError } = await supabase
+                .from('profiles')
+                .upsert(updates, { onConflict: 'id' });
 
             if (dbError) throw dbError;
 
