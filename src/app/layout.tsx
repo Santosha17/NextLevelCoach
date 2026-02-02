@@ -4,10 +4,13 @@ import "./globals.css";
 import Navbar from "@/src/components/Navbar";
 import Footer from '../components/Footer';
 
-const inter = Inter({ subsets: ["latin"] });
+// ADICIONEI "display: 'swap'" AQUI EM BAIXO 👇
+const inter = Inter({
+    subsets: ["latin"],
+    display: 'swap',
+});
 
 // 1. CONFIGURAÇÃO PWA (Viewport & Tema)
-// Define a cor da barra de topo (status bar) e bloqueia o zoom para parecer app nativa
 export const viewport: Viewport = {
     themeColor: "#0f172a",
     width: "device-width",
@@ -20,16 +23,14 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
     title: "Coach Next Level",
     description: "A ferramenta definitiva para treinadores de Padel.",
-    manifest: "/manifest.json", // O ficheiro que diz ao telemóvel que isto é uma App
+    manifest: "/manifest.json",
 
-    // Ícones: Usamos o quadrado (192px) para não deformar
     icons: {
-        icon: "/icon-192.png",       // Favicon do browser
-        shortcut: "/icon-192.png",   // Atalhos
-        apple: "/icon-192.png",      // Ícone do iPhone (IMPORTANTE ser quadrado)
+        icon: "/icon-192.png",
+        shortcut: "/icon-192.png",
+        apple: "/icon-192.png",
     },
 
-    // Definições específicas da Apple
     appleWebApp: {
         capable: true,
         statusBarStyle: "black-translucent",
@@ -44,6 +45,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="pt">
+        {/* O resto mantém-se igual, o inter.className já cá estava bem */}
         <body className={`${inter.className} bg-slate-900 text-white`}>
         <Navbar />
         {children}
