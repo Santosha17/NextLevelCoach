@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react'; // Sem useMemo
 import { createClient } from '@/src/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -9,8 +9,7 @@ import { Trash2, Plus, Calendar, Search, Filter, User, Shield, Users, Layers, La
 const CATEGORIES = ['Todas', 'Geral', 'Aquecimento', 'Ataque', 'Defesa', 'Saída de Parede', 'Volei', 'Bandeja/Víbora', 'Jogo de Pés'];
 
 export default function Dashboard() {
-    // FIX CRÍTICO: useMemo
-    const supabase = useMemo(() => createClient(), []);
+    const supabase = createClient(); // Instância Singleton segura
     const router = useRouter();
 
     const [drills, setDrills] = useState<any[]>([]);
@@ -27,21 +26,22 @@ export default function Dashboard() {
 
         const getData = async () => {
             try {
-                // 1. Obter User
-                const { data: { user }, error: authError } = await supabase.auth.getUser();
+                // 1. Obter Sessão (Mais seguro que getUser para evitar chamadas de rede desnecessárias)
+                const { data: { session }, error: authError } = await supabase.auth.getSession();
 
-                if (authError || !user) {
+                if (authError || !session?.user) {
                     if (isMounted) router.push('/login');
                     return;
                 }
 
-                if (isMounted) setUser(user);
+                const currentUser = session.user;
+                if (isMounted) setUser(currentUser);
 
                 // 2. Obter Perfil
                 const { data: profile } = await supabase
                     .from('profiles')
                     .select('is_admin, role')
-                    .eq('id', user.id)
+                    .eq('id', currentUser.id)
                     .maybeSingle();
 
                 if (isMounted && profile) {
@@ -49,11 +49,11 @@ export default function Dashboard() {
                     setIsCoach(profile.role === 'coach');
                 }
 
-                // 3. Buscar Dados
+                // 3. Buscar Dados (Paralelo)
                 const [drillsRes, studentsRes, plansRes] = await Promise.all([
-                    supabase.from('drills').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-                    supabase.from('students').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-                    supabase.from('plans').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+                    supabase.from('drills').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
+                    supabase.from('students').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id),
+                    supabase.from('plans').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id)
                 ]);
 
                 if (isMounted) {
@@ -74,9 +74,11 @@ export default function Dashboard() {
         getData();
 
         return () => { isMounted = false; };
-    }, [supabase, router]);
+    }, []); // Array vazio é seguro agora
 
-    // --- AÇÕES ---
+    // ... (MANTÉM AS FUNÇÕES AUXILIARES E O RETURN IGUAL AO QUE JÁ TINHAS) ...
+
+    // --- FUNÇÕES AUXILIARES (Para referência, não precisas mudar se já tens) ---
     const deleteDrill = async (e: any, id: string) => {
         e.preventDefault();
         if (!confirm('Apagar esta tática?')) return;
@@ -84,7 +86,6 @@ export default function Dashboard() {
         if (!error) setDrills(drills.filter(d => d.id !== id));
     };
 
-    // --- RENDER ---
     const filteredDrills = drills.filter(drill => {
         const matchesSearch = drill.title.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = selectedCategory === 'Todas' || (drill.category || 'Geral') === selectedCategory;
@@ -109,6 +110,7 @@ export default function Dashboard() {
 
     return (
         <div className="min-h-screen bg-slate-900 p-6 md:p-10">
+            {/* ... COPIA O TEU JSX DO DASHBOARD AQUI, É IGUAL ... */}
             <div className="max-w-6xl mx-auto">
                 {/* CABEÇALHO */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
