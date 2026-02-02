@@ -5,7 +5,7 @@ import { createClient } from '../../lib/supabase';
 import Link from 'next/link';
 import { Layout, Calendar, User, Search, Globe } from 'lucide-react';
 
-export default function CommunityPage() {
+export default function ComunidadePage() {
     const supabase = createClient();
     const [drills, setDrills] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
