@@ -13,17 +13,18 @@ import {
     Layers,
     Users,
     MessageCircle,
-    Shield, // <--- Importei o ícone de Admin
+    Shield,
 } from 'lucide-react';
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 const Navbar = () => {
     const [user, setUser] = useState<any>(null);
     const [isCoach, setIsCoach] = useState(false);
-    const [isAdmin, setIsAdmin] = useState(false); // <--- Novo Estado para Admin
+    const [isAdmin, setIsAdmin] = useState(false);
     const [planTier, setPlanTier] = useState<'free' | 'pro' | 'elite' | 'other'>('free');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+    // Instância do Supabase
     const supabase = createClient();
     const router = useRouter();
     const pathname = usePathname();
@@ -59,7 +60,7 @@ const Navbar = () => {
                 if (!isMounted) return;
                 setUser(null);
                 setIsCoach(false);
-                setIsAdmin(false); // Resetar Admin
+                setIsAdmin(false);
                 setPlanTier('free');
                 return;
             }
@@ -67,7 +68,6 @@ const Navbar = () => {
             if (!isMounted) return;
             setUser(session.user);
 
-            // ---> CORREÇÃO AQUI: Adicionei 'is_admin' na seleção
             const { data, error } = await supabase
                 .from('profiles')
                 .select('role, plan_tier, is_admin')
@@ -78,6 +78,8 @@ const Navbar = () => {
 
             if (error) {
                 console.error('Erro a carregar perfil:', error);
+                // Mesmo com erro no perfil, mantemos o user logado na UI básica
+                // mas sem permissões especiais para evitar crashes
                 setIsCoach(false);
                 setIsAdmin(false);
                 setPlanTier('free');
@@ -91,7 +93,7 @@ const Navbar = () => {
             };
 
             setIsCoach(profile.role === 'coach');
-            setIsAdmin(profile.is_admin === true); // <--- Definir estado de Admin
+            setIsAdmin(profile.is_admin === true);
             setPlanTier(mapPlanTier(profile.plan_tier));
         };
 
@@ -110,6 +112,16 @@ const Navbar = () => {
             async (_event: AuthChangeEvent, session: Session | null) => {
                 if (!isMounted) return;
                 await loadProfileFromSession(session);
+
+                // Se o evento for SIGN_OUT, forçamos a limpeza
+                if (_event === 'SIGNED_OUT') {
+                    setUser(null);
+                    setIsCoach(false);
+                    setIsAdmin(false);
+                    setPlanTier('free');
+                    router.refresh();
+                    router.push('/login');
+                }
             }
         );
 
@@ -117,17 +129,32 @@ const Navbar = () => {
             isMounted = false;
             subscription.unsubscribe();
         };
-    }, [supabase]);
+    }, [supabase, router]);
 
+    // ---> CORREÇÃO ROBUSTA DO LOGOUT <---
     const handleLogout = async () => {
-        setIsMobileMenuOpen(false);
-        await supabase.auth.signOut();
-        setUser(null);
-        setIsCoach(false);
-        setIsAdmin(false);
-        setPlanTier('free');
-        router.push('/login');
-        router.refresh();
+        try {
+            // 1. Fechar menu mobile para UX imediata
+            setIsMobileMenuOpen(false);
+
+            // 2. Tentar logout no Supabase
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                console.error('Erro ao fazer logout no Supabase:', error.message);
+            }
+        } catch (err) {
+            console.error('Erro inesperado no logout:', err);
+        } finally {
+            // 3. Independentemente de erro na API, limpar estado local e redirecionar
+            setUser(null);
+            setIsCoach(false);
+            setIsAdmin(false);
+            setPlanTier('free');
+
+            // 4. Limpar cache do Next.js e redirecionar
+            router.refresh();
+            router.push('/login');
+        }
     };
 
     const planLabel =
@@ -159,7 +186,6 @@ const Navbar = () => {
                             <LayoutDashboard size={16} /> Dashboard
                         </Link>
 
-                        {/* ---> NOVO BOTÃO DE BACKOFFICE (Só para Admins) <--- */}
                         {isAdmin && (
                             <Link
                                 href="/admin"
@@ -227,8 +253,11 @@ const Navbar = () => {
                                     </span>
                                 </div>
                             </div>
+
+                            {/* BOTÃO DE LOGOUT DESKTOP */}
                             <button
                                 onClick={handleLogout}
+                                title="Sair da conta"
                                 className="p-2 bg-slate-800 text-slate-400 rounded-lg border border-slate-700 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/50 transition"
                             >
                                 <LogOut size={18} />
@@ -251,6 +280,7 @@ const Navbar = () => {
                 </div>
             </div>
 
+            {/* MENU MOBILE */}
             {isMobileMenuOpen && (
                 <div className="md:hidden absolute top-full left-0 w-full bg-slate-900 border-b border-slate-800 shadow-2xl">
                     <div className="flex flex-col p-4 space-y-2">
@@ -267,7 +297,6 @@ const Navbar = () => {
                                     Dashboard
                                 </MobileLink>
 
-                                {/* ---> LINK MOBILE PARA ADMIN <--- */}
                                 {isAdmin && (
                                     <MobileLink
                                         href="/admin"
@@ -303,6 +332,8 @@ const Navbar = () => {
                                         </MobileLink>
                                     </>
                                 )}
+
+                                {/* BOTÃO DE LOGOUT MOBILE */}
                                 <button
                                     onClick={handleLogout}
                                     className="w-full text-left p-3 rounded-lg hover:bg-red-500/10 text-red-400 font-bold flex items-center gap-3 mt-4 border border-transparent hover:border-red-500/20 transition"
