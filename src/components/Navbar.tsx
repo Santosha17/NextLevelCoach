@@ -13,15 +13,15 @@ import {
     Layers,
     Users,
     MessageCircle,
+    Shield, // <--- Importei o ícone de Admin
 } from 'lucide-react';
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 const Navbar = () => {
     const [user, setUser] = useState<any>(null);
     const [isCoach, setIsCoach] = useState(false);
-    const [planTier, setPlanTier] = useState<'free' | 'pro' | 'elite' | 'other'>(
-        'free'
-    );
+    const [isAdmin, setIsAdmin] = useState(false); // <--- Novo Estado para Admin
+    const [planTier, setPlanTier] = useState<'free' | 'pro' | 'elite' | 'other'>('free');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const supabase = createClient();
@@ -59,6 +59,7 @@ const Navbar = () => {
                 if (!isMounted) return;
                 setUser(null);
                 setIsCoach(false);
+                setIsAdmin(false); // Resetar Admin
                 setPlanTier('free');
                 return;
             }
@@ -66,9 +67,10 @@ const Navbar = () => {
             if (!isMounted) return;
             setUser(session.user);
 
+            // ---> CORREÇÃO AQUI: Adicionei 'is_admin' na seleção
             const { data, error } = await supabase
                 .from('profiles')
-                .select('role, plan_tier')
+                .select('role, plan_tier, is_admin')
                 .eq('id', session.user.id)
                 .maybeSingle();
 
@@ -77,13 +79,19 @@ const Navbar = () => {
             if (error) {
                 console.error('Erro a carregar perfil:', error);
                 setIsCoach(false);
+                setIsAdmin(false);
                 setPlanTier('free');
                 return;
             }
 
-            const profile = data as { role?: string | null; plan_tier?: string | null };
+            const profile = data as {
+                role?: string | null;
+                plan_tier?: string | null;
+                is_admin?: boolean | null
+            };
 
             setIsCoach(profile.role === 'coach');
+            setIsAdmin(profile.is_admin === true); // <--- Definir estado de Admin
             setPlanTier(mapPlanTier(profile.plan_tier));
         };
 
@@ -116,6 +124,7 @@ const Navbar = () => {
         await supabase.auth.signOut();
         setUser(null);
         setIsCoach(false);
+        setIsAdmin(false);
         setPlanTier('free');
         router.push('/login');
         router.refresh();
@@ -149,6 +158,19 @@ const Navbar = () => {
                         >
                             <LayoutDashboard size={16} /> Dashboard
                         </Link>
+
+                        {/* ---> NOVO BOTÃO DE BACKOFFICE (Só para Admins) <--- */}
+                        {isAdmin && (
+                            <Link
+                                href="/admin"
+                                className={`hover:text-red-400 transition flex items-center gap-2 ${
+                                    pathname.startsWith('/admin') ? 'text-red-500' : ''
+                                }`}
+                            >
+                                <Shield size={16} /> Backoffice
+                            </Link>
+                        )}
+
                         <Link
                             href="/comunidade"
                             className={`hover:text-white transition flex items-center gap-2 ${
@@ -184,20 +206,25 @@ const Navbar = () => {
                     {user ? (
                         <div className="flex items-center gap-4">
                             <div className="hidden sm:flex flex-col items-end">
-                <span className="text-white text-sm font-bold leading-tight">
-                  {user.user_metadata?.full_name || 'Utilizador'}
-                </span>
+                                <span className="text-white text-sm font-bold leading-tight">
+                                    {user.user_metadata?.full_name || 'Utilizador'}
+                                </span>
                                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-green-500 text-[10px] uppercase font-black tracking-widest text-right">
-                    {isCoach ? 'TREINADOR' : 'JOGADOR'}
-                  </span>
+                                    <span className="text-green-500 text-[10px] uppercase font-black tracking-widest text-right">
+                                        {isCoach ? 'TREINADOR' : 'JOGADOR'}
+                                    </span>
+                                    {isAdmin && (
+                                        <span className="text-red-500 text-[10px] uppercase font-black tracking-widest text-right border border-red-500/30 px-1 rounded bg-red-500/10">
+                                            ADMIN
+                                        </span>
+                                    )}
                                     <span
                                         className={`text-[9px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full border ${getPlanBadgeClasses(
                                             planTier
                                         )}`}
                                     >
-                    {planLabel}
-                  </span>
+                                        {planLabel}
+                                    </span>
                                 </div>
                             </div>
                             <button
@@ -239,6 +266,18 @@ const Navbar = () => {
                                 >
                                     Dashboard
                                 </MobileLink>
+
+                                {/* ---> LINK MOBILE PARA ADMIN <--- */}
+                                {isAdmin && (
+                                    <MobileLink
+                                        href="/admin"
+                                        icon={<Shield size={18} className="text-red-500" />}
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <span className="text-red-400 font-bold">Backoffice</span>
+                                    </MobileLink>
+                                )}
+
                                 <MobileLink
                                     href="/comunidade"
                                     icon={<MessageCircle size={18} />}
