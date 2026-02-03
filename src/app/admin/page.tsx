@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createClient } from '@/src/lib/supabase';
 import { useRouter } from 'next/navigation';
 import {
@@ -16,10 +16,12 @@ import {
 import Link from 'next/link';
 
 export default function AdminPage() {
-    const supabase = useMemo(() => createClient(), []);
+    // Instância singleton do cliente
+    const supabase = createClient();
     const router = useRouter();
 
     const [loading, setLoading] = useState(true);
+    const [isAdmin, setIsAdmin] = useState(false);
     const [users, setUsers] = useState<any[]>([]);
     const [search, setSearch] = useState('');
     const [toast, setToast] = useState<{
@@ -27,52 +29,46 @@ export default function AdminPage() {
         message: string;
     } | null>(null);
 
+    // 1. Verificação de Segurança (Client-Side)
     useEffect(() => {
-        let isMounted = true;
-
-        const checkAccessAndLoad = async () => {
+        const checkAdminAccess = async () => {
             try {
                 const {
                     data: { user },
-                    error: authError,
                 } = await supabase.auth.getUser();
 
-                if (authError || !user) {
-                    if (isMounted) router.push('/login');
+                if (!user) {
+                    router.push('/login');
                     return;
                 }
 
-                const { data: profile, error: profileError } = await supabase
+                // Consulta direta à tabela profiles
+                // Graças às políticas RLS corrigidas, isto não causa loop
+                const { data: profile, error } = await supabase
                     .from('profiles')
                     .select('is_admin')
                     .eq('id', user.id)
                     .maybeSingle();
 
-                if (profileError) {
-                    console.error('Erro ao ler perfil:', profileError.message);
-                }
-
-                if (!profile || profile.is_admin !== true) {
-                    console.warn('Acesso negado.');
-                    if (isMounted) router.push('/dashboard');
+                if (error || !profile?.is_admin) {
+                    console.warn('Acesso negado: Utilizador não é admin');
+                    router.push('/dashboard'); // Chuta para fora se não for admin
                     return;
                 }
 
-                if (isMounted) await fetchUsers();
+                // Se chegou aqui, é admin
+                setIsAdmin(true);
+                await fetchUsers(); // Carrega a lista
             } catch (err) {
-                console.error('Erro crítico no Admin:', err);
-                if (isMounted) router.push('/dashboard');
+                console.error('Erro de verificação:', err);
+                router.push('/dashboard');
             } finally {
-                if (isMounted) setLoading(false);
+                setLoading(false);
             }
         };
 
-        checkAccessAndLoad();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [supabase, router]);
+        checkAdminAccess();
+    }, [router, supabase]);
 
     const fetchUsers = async () => {
         try {
@@ -102,6 +98,7 @@ export default function AdminPage() {
         )
             return;
 
+        // Otimistic UI Update
         setUsers((prev) =>
             prev.map((u) =>
                 u.id === userId ? { ...u, verified_coach: !currentStatus } : u
@@ -118,6 +115,7 @@ export default function AdminPage() {
                 type: 'error',
                 message: 'Erro ao atualizar treinador.',
             });
+            // Reverter em caso de erro
             setUsers((prev) =>
                 prev.map((u) =>
                     u.id === userId ? { ...u, verified_coach: currentStatus } : u
@@ -174,13 +172,15 @@ export default function AdminPage() {
             (u.email || '').toLowerCase().includes(search.toLowerCase())
     );
 
+    // Timer para fechar o toast
     useEffect(() => {
         if (!toast) return;
         const t = setTimeout(() => setToast(null), 3000);
         return () => clearTimeout(t);
     }, [toast]);
 
-    if (loading)
+    // Renderização Condicional
+    if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-red-500 gap-4">
                 <Loader2 className="animate-spin w-10 h-10" />
@@ -189,6 +189,10 @@ export default function AdminPage() {
                 </p>
             </div>
         );
+    }
+
+    // Proteção extra visual: se não for admin (e o loading acabou), não mostra nada
+    if (!isAdmin) return null;
 
     return (
         <div className="min-h-screen bg-slate-900 p-6 md:p-10 text-white">
@@ -276,29 +280,29 @@ export default function AdminPage() {
                                         </div>
                                     </td>
                                     <td className="p-5">
-                      <span
-                          className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                              u.role === 'coach'
-                                  ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                                  : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                          }`}
-                      >
-                        {u.role === 'coach' ? 'Treinador' : 'Jogador'}
-                      </span>
+                                            <span
+                                                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                                    u.role === 'coach'
+                                                        ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                                                        : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                }`}
+                                            >
+                                                {u.role === 'coach' ? 'Treinador' : 'Jogador'}
+                                            </span>
                                     </td>
                                     <td className="p-5 text-sm text-slate-400 font-mono">
                                         {u.license_number || '-'}
                                     </td>
                                     <td className="p-5">
-                      <span
-                          className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                              u.is_blocked
-                                  ? 'bg-red-500/10 text-red-400 border-red-500/30'
-                                  : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                          }`}
-                      >
-                        {u.is_blocked ? 'Bloqueado' : 'Ativo'}
-                      </span>
+                                            <span
+                                                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                                    u.is_blocked
+                                                        ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                                                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                                }`}
+                                            >
+                                                {u.is_blocked ? 'Bloqueado' : 'Ativo'}
+                                            </span>
                                     </td>
                                     <td className="p-5 text-sm text-slate-400 font-mono">
                                         {u.plan_tier || 'free'}

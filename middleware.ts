@@ -1,72 +1,59 @@
-// middleware.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { type NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
-export async function middleware(req: NextRequest) {
-    let supabaseResponse = NextResponse.next({
+export async function middleware(request: NextRequest) {
+    let response = NextResponse.next({
         request: {
-            headers: req.headers,
+            headers: request.headers,
         },
     });
 
     const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
             cookies: {
                 getAll() {
-                    return req.cookies.getAll();
+                    return request.cookies.getAll();
                 },
                 setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value }) =>
-                        req.cookies.set(name, value)
-                    );
-
-                    supabaseResponse = NextResponse.next({
-                        request: {
-                            headers: req.headers,
-                        },
-                    });
-
                     cookiesToSet.forEach(({ name, value, options }) =>
-                        supabaseResponse.cookies.set(name, value, options)
+                        request.cookies.set(name, value)
+                    );
+                    response = NextResponse.next({
+                        request,
+                    });
+                    cookiesToSet.forEach(({ name, value, options }) =>
+                        response.cookies.set(name, value, options)
                     );
                 },
             },
         }
     );
 
+    // 1. Verificar quem é o utilizador de forma segura
     const {
-        data: { session },
-    } = await supabase.auth.getSession();
+        data: { user },
+    } = await supabase.auth.getUser();
 
-    const { pathname } = req.nextUrl;
+    const path = request.nextUrl.pathname;
 
-    const isPublicRoute =
-        pathname === '/' ||
-        pathname.startsWith('/login') ||
-        pathname.startsWith('/forgot-password') ||
-        pathname.startsWith('/update-password') ||
-        pathname.startsWith('/auth/callback') ||
-        pathname.startsWith('/_next') ||
-        pathname.startsWith('/favicon') ||
-        pathname.startsWith('/api');
-
-    if (isPublicRoute) {
-        return supabaseResponse;
+    // 2. Proteger rotas (Apenas verifica se está LOGADO)
+    // Se tentar ir para /dashboard ou /admin sem login -> Manda para Login
+    if (!user && (path.startsWith("/dashboard") || path.startsWith("/admin"))) {
+        return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    if (!session) {
-        const redirectUrl = req.nextUrl.clone();
-        redirectUrl.pathname = '/login';
-        redirectUrl.searchParams.set('redirectedFrom', pathname);
-        return NextResponse.redirect(redirectUrl);
+    // 3. Se estiver logado e tentar ir para Login -> Manda para Dashboard
+    if (user && path.startsWith("/login")) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    return supabaseResponse;
+    return response;
 }
 
 export const config = {
-    matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+    matcher: [
+        "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    ],
 };
