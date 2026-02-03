@@ -1,6 +1,6 @@
 {
   "name": "Coach Next Level",
-  "short_name": "CNL Coach",
+  "short_name": "CNL",
   "description": "A ferramenta definitiva para treinadores de Padel.",
   "start_url": "/",
   "display": "standalone",
