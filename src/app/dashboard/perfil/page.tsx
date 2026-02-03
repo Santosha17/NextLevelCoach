@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+// 1. Adicionei useMemo aos imports
+import React, { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/src/lib/supabase';
 import {
     User,
@@ -18,7 +19,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function ProfilePage() {
-    const supabase = createClient();
+    // 2. CORREÇÃO CRUCIAL:
+    // O useMemo garante que o 'supabase' não é recriado a cada renderização.
+    // Isto para o loop infinito do useEffect.
+    const supabase = useMemo(() => createClient(), []);
+
     const router = useRouter();
 
     const [loading, setLoading] = useState(true);
@@ -70,6 +75,7 @@ export default function ProfilePage() {
                     setLicense(profile.license_number || '');
                     setIsVerified(profile.verified_coach || false);
                 } else {
+                    // Fallback para metadados se o perfil ainda não existir
                     setFullName(user.user_metadata?.full_name || '');
                     setPhone(user.user_metadata?.phone || '');
                     setRole(
@@ -88,7 +94,7 @@ export default function ProfilePage() {
         return () => {
             isMounted = false;
         };
-    }, [router, supabase]);
+    }, [router, supabase]); // Agora 'supabase' é estável graças ao useMemo
 
     const updateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -113,7 +119,7 @@ export default function ProfilePage() {
 
             const user = session.user;
 
-            // Atualizar metadados de auth (não mexe na tabela profiles)
+            // Atualizar metadados de auth
             const { error: authUpdateError } = await supabase.auth.updateUser({
                 data: {
                     full_name: fullName,
@@ -125,6 +131,7 @@ export default function ProfilePage() {
 
             if (authUpdateError) throw authUpdateError;
 
+            // Atualizar tabela profiles
             const updates = {
                 id: user.id,
                 full_name: fullName,
@@ -141,11 +148,15 @@ export default function ProfilePage() {
             if (dbError) throw dbError;
 
             setSuccess(true);
+
+            // Pequeno delay visual antes de recarregar
             setTimeout(() => {
+                if (success) return; // Evita múltiplas chamadas
                 setSuccess(false);
                 setSaving(false);
-                router.refresh();
+                router.refresh(); // Atualiza os dados no servidor (Navbar, etc)
             }, 1500);
+
         } catch (error: any) {
             console.error('Erro ao guardar perfil:', error);
             alert('Erro: ' + (error?.message || 'Ocorreu um erro inesperado.'));
