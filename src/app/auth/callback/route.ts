@@ -1,6 +1,9 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
 
+// Obrigatorio para cloudflare pages
+export const runtime = 'edge';
+
 export async function GET(request: NextRequest) {
     // 1. Apanhar os parâmetros do link (code e next)
     const { searchParams, origin } = new URL(request.url);
