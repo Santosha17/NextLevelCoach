@@ -162,7 +162,7 @@ const Navbar = () => {
             <div className="w-full px-6 md:px-10 py-4 flex justify-between items-center">
                 <Link href="/" className="hover:opacity-80 transition z-50">
                     <div className="font-black text-xl tracking-tighter italic text-white flex items-center gap-2 cursor-pointer">
-                        COACH NEXT LEVEL
+                        NEXT LEVEL COACH
                     </div>
                 </Link>
 
