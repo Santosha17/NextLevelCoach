@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { createClient } from '../../lib/supabase';
+import React, { useState, useEffect } from 'react'; // <--- Adicionei useEffect
+import { createClient } from '@/src/lib/supabase'; // <--- Garante que o import está certo
 import { useRouter } from 'next/navigation';
 import { Lock, Mail, User, Shield, Loader2, ArrowLeft, Phone } from 'lucide-react';
 import Link from 'next/link';
@@ -12,6 +12,8 @@ export default function LoginPage() {
 
     const [isSignUp, setIsSignUp] = useState(false);
     const [loading, setLoading] = useState(false);
+    // Estado de verificação inicial para evitar "piscar" o form se já estiver logado
+    const [checkingSession, setCheckingSession] = useState(true);
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -21,19 +23,45 @@ export default function LoginPage() {
     const [role, setRole] = useState<'player' | 'coach'>('player');
     const [license, setLicense] = useState('');
 
+    // 1. VERIFICAÇÃO DE SEGURANÇA AO INICIAR
+    // Impede que users logados vejam o login (Rede de segurança do Middleware)
+    useEffect(() => {
+        const checkSession = async () => {
+            try {
+                // USAR SEMPRE getUser() e não getSession() para evitar loops!
+                // O getUser valida o token com o servidor.
+                const { data: { user } } = await supabase.auth.getUser();
+
+                if (user) {
+                    // Se já estiver logado, manda para o dashboard
+                    router.replace('/dashboard');
+                } else {
+                    // Se não estiver, mostra o formulário
+                    setCheckingSession(false);
+                }
+            } catch (error) {
+                setCheckingSession(false);
+            }
+        };
+        checkSession();
+    }, [router, supabase]);
+
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
         try {
             if (isSignUp) {
+                // ... (A tua lógica de registo mantém-se igual, está ótima)
                 if (!fullName.trim() || !phone.trim()) {
                     alert('Todos os campos são obrigatórios, incluindo o telemóvel.');
+                    setLoading(false);
                     return;
                 }
 
                 if (role === 'coach' && !license.trim()) {
                     alert('Treinadores certificados têm de inserir o nº de licença FPP.');
+                    setLoading(false);
                     return;
                 }
 
@@ -57,19 +85,17 @@ export default function LoginPage() {
                 alert('Conta criada! Vai ao teu email e clica no link para confirmar.');
                 setIsSignUp(false);
             } else {
+                // LOGIN
                 const { data, error } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 });
 
                 if (error) throw error;
-                if (!data.session) {
-                    alert('Login falhou. Tenta novamente.');
-                    return;
-                }
 
-                router.push('/dashboard');
+                // Refresh é CRUCIAL para o Middleware apanhar o novo cookie
                 router.refresh();
+                router.push('/dashboard');
             }
         } catch (error: any) {
             alert('Erro: ' + (error?.message || 'Ocorreu um erro na autenticação.'));
@@ -77,6 +103,15 @@ export default function LoginPage() {
             setLoading(false);
         }
     };
+
+    // Se estiver a verificar a sessão, mostra um loading bonito em vez do form
+    if (checkingSession) {
+        return (
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center text-green-500">
+                <Loader2 className="animate-spin w-10 h-10" />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative">
@@ -87,7 +122,7 @@ export default function LoginPage() {
                 <ArrowLeft size={20} /> Voltar
             </Link>
 
-            <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
+            <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700 animate-in fade-in zoom-in duration-300">
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-black text-white mb-2">Coach Next Level</h1>
                     <p className="text-slate-400">
@@ -97,12 +132,9 @@ export default function LoginPage() {
 
                 <form onSubmit={handleAuth} className="space-y-4">
                     {isSignUp && (
-                        <div className="space-y-4">
+                        <div className="space-y-4 animate-in slide-in-from-top-4">
                             <div className="relative">
-                                <User
-                                    className="absolute left-3 top-3.5 text-slate-500"
-                                    size={20}
-                                />
+                                <User className="absolute left-3 top-3.5 text-slate-500" size={20} />
                                 <input
                                     type="text"
                                     placeholder="Nome Completo"
@@ -114,10 +146,7 @@ export default function LoginPage() {
                             </div>
 
                             <div className="relative">
-                                <Phone
-                                    className="absolute left-3 top-3.5 text-slate-500"
-                                    size={20}
-                                />
+                                <Phone className="absolute left-3 top-3.5 text-slate-500" size={20} />
                                 <input
                                     type="tel"
                                     placeholder="Telemóvel"
@@ -154,11 +183,8 @@ export default function LoginPage() {
                             </div>
 
                             {role === 'coach' && (
-                                <div className="relative">
-                                    <Shield
-                                        className="absolute left-3 top-3.5 text-green-500"
-                                        size={20}
-                                    />
+                                <div className="relative animate-in fade-in">
+                                    <Shield className="absolute left-3 top-3.5 text-green-500" size={20} />
                                     <input
                                         type="text"
                                         placeholder="Nº Licença FPP (Obrigatório)"
@@ -176,10 +202,7 @@ export default function LoginPage() {
                     )}
 
                     <div className="relative">
-                        <Mail
-                            className="absolute left-3 top-3.5 text-slate-500"
-                            size={20}
-                        />
+                        <Mail className="absolute left-3 top-3.5 text-slate-500" size={20} />
                         <input
                             type="email"
                             placeholder="Email"
@@ -191,10 +214,7 @@ export default function LoginPage() {
                     </div>
 
                     <div className="relative">
-                        <Lock
-                            className="absolute left-3 top-3.5 text-slate-500"
-                            size={20}
-                        />
+                        <Lock className="absolute left-3 top-3.5 text-slate-500" size={20} />
                         <input
                             type="password"
                             placeholder="Password"
