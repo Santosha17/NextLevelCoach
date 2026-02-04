@@ -38,7 +38,7 @@ function AuthCallbackContent() {
 
                     if (error) {
                         // Tentar recuperar sessão existente se o código falhar
-                        const { data: { session } } = await supabase.auth.getSession();
+                        const { data: { session } } = await supabase.auth.getUser();
                         if (session) {
                             console.log('Sessão recuperada, a redirecionar...');
                             router.push(next);
@@ -58,7 +58,7 @@ function AuthCallbackContent() {
                 }
             } else {
                 // Sem código, verificar sessão
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session } } = await supabase.auth.getUser();
                 if (session) {
                     router.push(next);
                 } else {

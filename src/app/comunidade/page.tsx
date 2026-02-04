@@ -10,29 +10,31 @@ export default function ComunidadePage() {
     const [drills, setDrills] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [sessionError, setSessionError] = useState<string | null>(null);
+    // Removi o sessionError porque se falhar a sessão, a página deve funcionar na mesma (é pública)
 
     useEffect(() => {
         let isMounted = true;
 
         const getData = async () => {
             try {
-                const {
-                    data: { session },
-                    error,
-                } = await supabase.auth.getSession();
+                // 1. CORREÇÃO: Usar getSession() em vez de getUser()
+                // Isto evita erros de rede. Se não houver sessão, apenas ignoramos.
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                // Se houver um erro REAL de sistema (não apenas "falta de sessão"), mostramos aviso leve.
+                if (error) {
+                    console.warn('Aviso de sessão:', error.message);
+                }
+
+                // Se session?.user for null, não faz mal, continuamos para carregar os drills públicos.
 
                 if (!isMounted) return;
 
-                if (error || !session?.user) {
-                    console.error('Sessão (opcional) em ComunidadePage:', error);
-                    // Aqui podes decidir se obrigas login ou não; neste exemplo NÃO obrigo.
-                }
-
+                // 2. Carregar Drills Públicos
                 const { data, error: drillsError } = await supabase
                     .from('drills')
                     .select('*')
-                    .eq('is_public', true)
+                    .eq('is_public', true) // Garante que só carrega os públicos
                     .order('created_at', { ascending: false })
                     .limit(50);
 
@@ -43,9 +45,9 @@ export default function ComunidadePage() {
                 }
 
                 if (data) setDrills(data);
+
             } catch (e) {
                 console.error('Erro inesperado em ComunidadePage:', e);
-                setSessionError('Ocorreu um erro ao carregar a comunidade.');
             } finally {
                 if (isMounted) setLoading(false);
             }
@@ -56,7 +58,7 @@ export default function ComunidadePage() {
         return () => {
             isMounted = false;
         };
-    }, [supabase]);
+    }, []); // Dependência vazia para correr só 1 vez
 
     const filteredDrills = drills.filter((drill) =>
         drill.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -64,14 +66,10 @@ export default function ComunidadePage() {
 
     const getCategoryColor = (cat: string) => {
         switch (cat) {
-            case 'Ataque':
-                return 'bg-red-500/20 text-red-400 border-red-500/30';
-            case 'Defesa':
-                return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-            case 'Aquecimento':
-                return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-            default:
-                return 'bg-slate-700 text-slate-300 border-slate-600';
+            case 'Ataque': return 'bg-red-500/20 text-red-400 border-red-500/30';
+            case 'Defesa': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+            case 'Aquecimento': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+            default: return 'bg-slate-700 text-slate-300 border-slate-600';
         }
     };
 
@@ -79,17 +77,6 @@ export default function ComunidadePage() {
         return (
             <div className="min-h-screen bg-slate-900 flex items-center justify-center text-green-500 gap-2">
                 <Loader2 className="animate-spin" /> A carregar a comunidade...
-            </div>
-        );
-    }
-
-    if (sessionError) {
-        return (
-            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-red-400">
-                <p className="mb-2 font-bold">{sessionError}</p>
-                <p className="text-sm text-slate-400">
-                    Tenta recarregar a página ou voltar a entrar mais tarde.
-                </p>
             </div>
         );
     }
@@ -109,10 +96,7 @@ export default function ComunidadePage() {
                 </div>
 
                 <div className="max-w-xl mx-auto mb-12 relative">
-                    <Search
-                        className="absolute left-4 top-3.5 text-slate-500"
-                        size={20}
-                    />
+                    <Search className="absolute left-4 top-3.5 text-slate-500" size={20} />
                     <input
                         type="text"
                         placeholder="Pesquisar táticas na comunidade..."
@@ -141,17 +125,13 @@ export default function ComunidadePage() {
                             >
                                 <div className="p-6">
                                     <div className="flex justify-between items-start mb-4">
-                    <span
-                        className={`px-3 py-1 rounded-full text-[10px] uppercase font-bold border tracking-wider ${getCategoryColor(
-                            drill.category
-                        )}`}
-                    >
-                      {drill.category || 'Geral'}
-                    </span>
+                                        <span className={`px-3 py-1 rounded-full text-[10px] uppercase font-bold border tracking-wider ${getCategoryColor(drill.category)}`}>
+                                            {drill.category || 'Geral'}
+                                        </span>
                                         <span className="text-slate-500 text-xs flex items-center gap-1">
-                      <Calendar size={12} />
+                                            <Calendar size={12} />
                                             {new Date(drill.created_at).toLocaleDateString('pt-PT')}
-                    </span>
+                                        </span>
                                     </div>
 
                                     <h3 className="text-xl font-bold text-white mb-2 line-clamp-2">
@@ -163,12 +143,8 @@ export default function ComunidadePage() {
                                             <User size={14} />
                                         </div>
                                         <div>
-                                            <p className="text-xs text-slate-400 uppercase font-bold">
-                                                Criado por
-                                            </p>
-                                            <p className="text-sm text-white font-medium">
-                                                {drill.author_name || 'Treinador'}
-                                            </p>
+                                            <p className="text-xs text-slate-400 uppercase font-bold">Criado por</p>
+                                            <p className="text-sm text-white font-medium">{drill.author_name || 'Treinador'}</p>
                                         </div>
                                     </div>
                                 </div>

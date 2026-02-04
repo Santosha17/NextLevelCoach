@@ -43,6 +43,7 @@ export default function StudentsPage() {
 
         const fetchStudents = async () => {
             try {
+                // CORREÇÃO: Usar getSession() em vez de getUser()
                 const {
                     data: { session },
                     error,
@@ -90,10 +91,12 @@ export default function StudentsPage() {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            // CORREÇÃO: Usar getSession() aqui também para garantir que não falha ao gravar
             const {
                 data: { session },
                 error,
             } = await supabase.auth.getSession();
+
             if (error || !session?.user) {
                 alert('Sessão inválida. Faz login novamente.');
                 return;
@@ -113,7 +116,7 @@ export default function StudentsPage() {
             setFormData({ name: '', level: 'M5', contact: '', notes: '' });
             setShowModal(false);
 
-            // Atualizar lista sem reload
+            // Atualizar lista sem reload total da página
             setLoading(true);
             const { data, error: studentsError } = await supabase
                 .from('students')
