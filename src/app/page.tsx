@@ -43,7 +43,7 @@ export default function Home() {
                 const {
                     data: { session },
                     error,
-                } = await supabase.auth.getSession();
+                } = await supabase.auth.getUser();
 
                 if (!isMounted) return;
 

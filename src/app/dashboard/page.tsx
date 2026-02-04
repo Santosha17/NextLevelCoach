@@ -55,7 +55,7 @@ export default function Dashboard() {
                 const {
                     data: { session },
                     error: authError,
-                } = await supabase.auth.getSession();
+                } = await supabase.auth.getUser();
 
                 if (!isMounted) return;
 
