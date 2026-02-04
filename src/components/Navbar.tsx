@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+// 1. Importar useMemo
+import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/src/lib/supabase';
@@ -18,16 +19,18 @@ import {
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 const Navbar = () => {
+    // 2. CORREÇÃO CRUCIAL: Usar useMemo para impedir o loop infinito
+    // Isto garante que o cliente Supabase é criado apenas UMA vez
+    const supabase = useMemo(() => createClient(), []);
+
+    const router = useRouter();
+    const pathname = usePathname();
+
     const [user, setUser] = useState<any>(null);
     const [isCoach, setIsCoach] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [planTier, setPlanTier] = useState<'free' | 'pro' | 'elite' | 'other'>('free');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-    // Instância do Supabase
-    const supabase = createClient();
-    const router = useRouter();
-    const pathname = usePathname();
 
     const mapPlanTier = (raw?: string | null): 'free' | 'pro' | 'elite' | 'other' => {
         if (!raw) return 'free';
@@ -78,8 +81,6 @@ const Navbar = () => {
 
             if (error) {
                 console.error('Erro a carregar perfil:', error);
-                // Mesmo com erro no perfil, mantemos o user logado na UI básica
-                // mas sem permissões especiais para evitar crashes
                 setIsCoach(false);
                 setIsAdmin(false);
                 setPlanTier('free');
@@ -113,14 +114,13 @@ const Navbar = () => {
                 if (!isMounted) return;
                 await loadProfileFromSession(session);
 
-                // Se o evento for SIGN_OUT, forçamos a limpeza
                 if (_event === 'SIGNED_OUT') {
                     setUser(null);
                     setIsCoach(false);
                     setIsAdmin(false);
                     setPlanTier('free');
-                    router.refresh();
                     router.push('/login');
+                    router.refresh();
                 }
             }
         );
@@ -129,31 +129,22 @@ const Navbar = () => {
             isMounted = false;
             subscription.unsubscribe();
         };
-    }, [supabase, router]);
+    }, [supabase, router]); // Agora 'supabase' é estável e não causa loop
 
-    // ---> CORREÇÃO ROBUSTA DO LOGOUT <---
     const handleLogout = async () => {
         try {
-            // 1. Fechar menu mobile para UX imediata
             setIsMobileMenuOpen(false);
-
-            // 2. Tentar logout no Supabase
             const { error } = await supabase.auth.signOut();
-            if (error) {
-                console.error('Erro ao fazer logout no Supabase:', error.message);
-            }
+            if (error) console.error('Erro logout:', error);
         } catch (err) {
-            console.error('Erro inesperado no logout:', err);
+            console.error('Erro logout:', err);
         } finally {
-            // 3. Independentemente de erro na API, limpar estado local e redirecionar
             setUser(null);
             setIsCoach(false);
             setIsAdmin(false);
             setPlanTier('free');
-
-            // 4. Limpar cache do Next.js e redirecionar
-            router.refresh();
             router.push('/login');
+            router.refresh();
         }
     };
 
@@ -231,8 +222,9 @@ const Navbar = () => {
                 <div className="flex items-center gap-4">
                     {user ? (
                         <div className="flex items-center gap-4">
-                            <div className="hidden sm:flex flex-col items-end">
-                                <span className="text-white text-sm font-bold leading-tight">
+                            {/* Tornei esta área clicável para ir ao perfil */}
+                            <Link href="/dashboard/perfil" className="hidden sm:flex flex-col items-end cursor-pointer group">
+                                <span className="text-white text-sm font-bold leading-tight group-hover:text-green-400 transition">
                                     {user.user_metadata?.full_name || 'Utilizador'}
                                 </span>
                                 <div className="flex items-center gap-2 mt-0.5">
@@ -252,9 +244,8 @@ const Navbar = () => {
                                         {planLabel}
                                     </span>
                                 </div>
-                            </div>
+                            </Link>
 
-                            {/* BOTÃO DE LOGOUT DESKTOP */}
                             <button
                                 onClick={handleLogout}
                                 title="Sair da conta"
@@ -280,9 +271,8 @@ const Navbar = () => {
                 </div>
             </div>
 
-            {/* MENU MOBILE */}
             {isMobileMenuOpen && (
-                <div className="md:hidden absolute top-full left-0 w-full bg-slate-900 border-b border-slate-800 shadow-2xl">
+                <div className="md:hidden absolute top-full left-0 w-full bg-slate-900 border-b border-slate-800 shadow-2xl animate-in slide-in-from-top-5">
                     <div className="flex flex-col p-4 space-y-2">
                         {user ? (
                             <>
@@ -333,7 +323,10 @@ const Navbar = () => {
                                     </>
                                 )}
 
-                                {/* BOTÃO DE LOGOUT MOBILE */}
+                                <MobileLink href="/dashboard/perfil" icon={<UserCircle size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
+                                    O Meu Perfil
+                                </MobileLink>
+
                                 <button
                                     onClick={handleLogout}
                                     className="w-full text-left p-3 rounded-lg hover:bg-red-500/10 text-red-400 font-bold flex items-center gap-3 mt-4 border border-transparent hover:border-red-500/20 transition"
