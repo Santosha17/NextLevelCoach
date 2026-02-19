@@ -85,16 +85,16 @@ export default function Home() {
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-green-500/20 blur-[120px] rounded-full pointer-events-none"></div>
 
                 <div className="container mx-auto px-6 text-center relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-green-400 text-xs font-bold uppercase tracking-wider mb-6">
+                    {/* <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-green-400 text-xs font-bold uppercase tracking-wider mb-6">
                         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                         Nova Versão 2.0 Disponível
-                    </div>
+                    </div>*/}
 
                     <h1 className="text-5xl md:text-7xl font-black mb-6 tracking-tight leading-tight">
                         Eleva o teu treino <br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600">
-              ao próximo nível.
-            </span>
+                        ao próximo nível.
+                        </span>
                     </h1>
 
                     <p className="text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
@@ -120,7 +120,7 @@ export default function Home() {
             {/* FEATURES */}
             <section className="py-20 bg-slate-900 relative z-10">
                 <div className="container mx-auto px-6">
-                    <div className="text-center mb  -16">
+                    <div className="text-center mb-16">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4">
                             Tudo o que precisas num só lugar
                         </h2>
