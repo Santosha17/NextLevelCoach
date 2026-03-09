@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { createClient } from '../../lib/supabase';
-import { ArrowLeft, Mail, Loader2, CheckCircle } from 'lucide-react';
+import { createClient } from '@/src/lib/supabase';
+import { ArrowLeft, Mail, Loader2, CheckCircle, Zap } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ForgotPassword() {
@@ -18,7 +18,6 @@ export default function ForgotPassword() {
         setError(null);
 
         try {
-            // O redirectTo é para onde o user vai depois de clicar no link do email
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
             });
@@ -32,55 +31,88 @@ export default function ForgotPassword() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative">
-            <Link href="/login" className="absolute top-8 left-8 text-slate-400 hover:text-white flex items-center gap-2 transition">
-                <ArrowLeft size={20} /> Voltar ao Login
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans">
+            {/* Glow Background característico do design Elite Red */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-red-600/10 blur-[120px] rounded-full pointer-events-none" />
+
+            {/* BOTÃO VOLTAR */}
+            <Link
+                href="/login"
+                className="absolute top-8 left-8 text-slate-500 hover:text-white flex items-center gap-2 transition-all font-black uppercase text-[10px] tracking-widest z-10"
+            >
+                <ArrowLeft size={16} /> Voltar ao Login
             </Link>
 
-            <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
-                <div className="text-center mb-6">
-                    <h1 className="text-2xl font-bold text-white mb-2">Recuperar Conta</h1>
-                    <p className="text-slate-400 text-sm">
-                        Insere o teu email para receberes um link de recuperação.
+            {/* CARD PRINCIPAL */}
+            <div className="bg-slate-900/50 backdrop-blur-xl p-8 md:p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-white/5 animate-in fade-in zoom-in duration-500 relative z-10">
+
+                <div className="text-center mb-10">
+                    <div className="inline-flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full text-red-500 text-[10px] font-black uppercase tracking-widest mb-6">
+                        <Zap size={10} fill="currentColor" /> Account Recovery
+                    </div>
+                    <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none mb-2">
+                        Recuperar <span className="text-red-600">Acesso</span>
+                    </h1>
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">
+                        Insere o teu email profissional para resetar a tua credencial.
                     </p>
                 </div>
 
                 {success ? (
-                    <div className="text-center py-6 animate-in fade-in">
-                        <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
-                            <CheckCircle className="text-green-500" size={32} />
+                    <div className="text-center py-6 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="mx-auto w-20 h-20 bg-red-600/10 rounded-[2rem] flex items-center justify-center mb-6 shadow-inner border border-red-600/20">
+                            <CheckCircle className="text-red-500" size={40} />
                         </div>
-                        <h3 className="text-white font-bold mb-2">Email Enviado!</h3>
-                        <p className="text-slate-400 text-sm mb-6">
-                            Verifica a tua caixa de entrada (e o spam). O link vai permitir-te criar uma nova password.
+                        <h3 className="text-white font-black italic uppercase text-xl mb-3 tracking-tight text-white">Email Enviado</h3>
+                        <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed italic">
+                            Verifica a tua caixa de entrada. O link de segurança permitirá criar uma nova password de elite.
                         </p>
                         <Link href="/login">
-                            <button className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition">
-                                Voltar ao Login
+                            <button className="w-full bg-white text-slate-950 hover:bg-red-600 hover:text-white font-black uppercase italic tracking-widest py-4 rounded-2xl transition-all shadow-xl active:scale-95 text-xs">
+                                Autorizar Login
                             </button>
                         </Link>
                     </div>
                 ) : (
-                    <form onSubmit={handleReset} className="space-y-4">
-                        {error && <div className="p-3 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-sm text-center">{error}</div>}
+                    <form onSubmit={handleReset} className="space-y-6">
+                        {error && (
+                            <div className="p-4 bg-red-600/10 border border-red-600/20 rounded-2xl text-red-500 text-[10px] font-black uppercase tracking-widest text-center animate-in shake duration-300">
+                                {error}
+                            </div>
+                        )}
 
                         <div className="relative">
-                            <Mail className="absolute left-3 top-3.5 text-slate-500" size={20} />
+                            <Mail className="absolute left-4 top-4 text-slate-600" size={18} />
                             <input
-                                type="email" placeholder="O teu email" required
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
-                                value={email} onChange={(e) => setEmail(e.target.value)}
+                                type="email"
+                                placeholder="EMAIL PROFISSIONAL"
+                                required
+                                className="w-full bg-slate-950 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm text-white font-bold focus:border-red-600 outline-none transition-all placeholder:text-slate-800"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
 
                         <button
-                            type="submit" disabled={loading}
-                            className="w-full bg-green-500 hover:bg-green-400 text-slate-900 font-bold py-3 rounded-lg transition flex justify-center items-center gap-2"
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-red-600 hover:bg-red-500 text-white font-black uppercase italic tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl shadow-red-900/40 disabled:opacity-50 active:scale-[0.98] flex justify-center items-center gap-3 text-sm"
                         >
-                            {loading ? <Loader2 className="animate-spin" /> : 'Enviar Link de Recuperação'}
+                            {loading ? (
+                                <Loader2 className="animate-spin" size={20} />
+                            ) : (
+                                <>Enviar Código Reset <Zap size={16} fill="currentColor" /></>
+                            )}
                         </button>
                     </form>
                 )}
+            </div>
+
+            {/* FOOTER DE APOIO */}
+            <div className="absolute bottom-8 text-center w-full">
+                <p className="text-slate-600 text-[8px] font-black uppercase tracking-[0.3em]">
+                    Next Level Coach · Secure Protocol 2.0
+                </p>
             </div>
         </div>
     );

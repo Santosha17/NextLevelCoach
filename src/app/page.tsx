@@ -143,23 +143,59 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* PRICING */}
-            <section id="pricing" className="max-w-5xl mx-auto px-6 py-32 text-center scroll-mt-24">
-                <h2 className="text-4xl md:text-5xl font-black uppercase italic mb-4 tracking-tighter">Planos para Campeões</h2>
-                <p className="text-slate-500 font-bold mb-16 uppercase text-xs tracking-widest">Escolhe o teu nível de performance</p>
+            {/* PRICING SECTION */}
+            <section id="pricing" className="max-w-7xl mx-auto px-6 py-32 text-center scroll-mt-24">
+                <div className="mb-16">
+                    <h2 className="text-4xl md:text-5xl font-black uppercase italic mb-4 tracking-tighter text-white">
+                        Planos de <span className="text-red-600">Alta Performance</span>
+                    </h2>
+                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.3em]">
+                        Escolhe o arsenal que a tua carreira de treinador exige
+                    </p>
+                </div>
 
-                <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                {/* Grelha de 3 colunas para os teus novos planos */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+
+                    {/* PLANO FREE */}
                     <PriceCard
-                        tier="Free Player"
+                        tier="Free"
                         price="0€"
-                        features={['Até 3 Táticas', 'Acesso à Comunidade', 'Exportação Padrão']}
+                        features={[
+                            'Até 3 Táticas Ativas',
+                            'Acesso à Comunidade',
+                            'Exportação PNG Padrão',
+                            'Gestão Básica de Alunos'
+                        ]}
                     />
+
+                    {/* PLANO PRO COACH - O equilíbrio */}
                     <PriceCard
-                        tier="Elite Coach"
+                        tier="Pro Coach"
                         price="9.90€"
-                        featured
-                        features={['Táticas Ilimitadas', 'Gestão de Alunos', 'Exportação Premium HD', 'Suporte Prioritário']}
+                        features={[
+                            'Táticas Ilimitadas',
+                            'Biblioteca de Exercícios',
+                            'Exportação HD sem Marca de Água',
+                            'Suporte por Email',
+                            'Gestão Completa de Alunos'
+                        ]}
                     />
+
+                    {/* PLANO ELITE PERFORMANCE - O Destaque */}
+                    <PriceCard
+                        tier="Elite Performance"
+                        price="19.90€"
+                        featured={true}
+                        features={[
+                            'Tudo do Plano Pro',
+                            'Exportação de Planos em PDF Pro',
+                            'QR Codes para Vídeos Técnicos',
+                            'Análise Tática Avançada',
+                            'Suporte Prioritário 24/7'
+                        ]}
+                    />
+
                 </div>
             </section>
 

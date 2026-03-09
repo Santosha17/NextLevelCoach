@@ -18,6 +18,32 @@
     --foreground: #ededed;
   }
 }
+/* Estilo Elite para Scrollbars Horizontais */
+.custom-scrollbar {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #dc2626 #0f172a; /* Firefox: Vermelho e Slate-900 */
+}
+
+/* Chrome, Edge e Safari */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 4px; /* Altura do scroll horizontal */
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #020617; /* Fundo slate-950 */
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #991b1b; /* Vermelho escuro (red-800) */
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #dc2626; /* Vermelho vibrante (red-600) no hover */
+  cursor: pointer;
+}
 
 body {
   background: var(--background);
