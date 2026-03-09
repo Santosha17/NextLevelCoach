@@ -24,9 +24,9 @@ export default function Home() {
         let isMounted = true;
         const checkUser = async () => {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
+                const { data: { session } } = await supabase.auth.getSession();
                 if (!isMounted) return;
-                if (user) {
+                if (session?.user) {
                     router.push("/dashboard");
                 } else {
                     setChecking(false);
@@ -40,14 +40,15 @@ export default function Home() {
     }, [router, supabase]);
 
     if (checking) return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center text-red-500 gap-2">
-            <Loader2 className="animate-spin" />
-            <span className="font-black uppercase tracking-widest text-xs">Next Level</span>
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-red-600 gap-4">
+            <Loader2 className="animate-spin w-10 h-10" />
+            <span className="font-black uppercase tracking-[0.3em] text-xs text-slate-500">Next Level Coach</span>
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-slate-950 text-white selection:bg-red-500/30 flex flex-col font-sans scroll-smooth">
+        <div className="min-h-screen bg-slate-950 text-white selection:bg-red-500/30 flex flex-col font-sans scroll-smooth overflow-x-hidden">
+
             {/* NAV */}
             <nav className="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-md border-b border-white/5">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
@@ -65,7 +66,7 @@ export default function Home() {
                     </div>
                     <Link
                         href="/login"
-                        className="bg-white text-black px-6 py-2 rounded-xl text-xs font-black uppercase hover:bg-red-600 hover:text-white transition-all"
+                        className="bg-white text-black px-6 py-2 rounded-xl text-xs font-black uppercase hover:bg-red-600 hover:text-white transition-all shadow-lg active:scale-95"
                     >
                         Entrar
                     </Link>
@@ -73,17 +74,17 @@ export default function Home() {
             </nav>
 
             {/* HERO SECTION */}
-            <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 px-6 overflow-hidden text-center">
+            <section className="relative pt-32 pb-20 md:pt-48 md:pb-24 px-6 text-center">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-red-600/10 blur-[120px] rounded-full pointer-events-none -z-10" />
 
-                <div className="max-w-7xl mx-auto">
+                <div className="max-w-7xl mx-auto relative z-10">
                     <div className="inline-flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-4 py-1.5 rounded-full text-red-500 text-[10px] font-black uppercase tracking-[0.2em] mb-8 animate-pulse">
                         <Zap size={12} fill="currentColor" /> Tactical Editor 2.0
                     </div>
 
                     <h1 className="text-6xl md:text-8xl font-black italic uppercase tracking-tighter leading-[0.85] mb-8">
                         Leva a tua tática ao <br />
-                        <span className="text-transparent bg-clip-text bg-linear-to-b from-white to-slate-500">
+                        <span className="text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-500">
                             Próximo Nível
                         </span>
                     </h1>
@@ -94,29 +95,70 @@ export default function Home() {
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                         <Link href="/login" className="w-full sm:w-auto">
-                            <button className="w-full sm:w-auto px-10 py-5 bg-red-600 hover:bg-red-500 text-white font-black uppercase italic tracking-widest rounded-2xl transition-all shadow-2xl shadow-red-900/40 flex items-center justify-center gap-3">
+                            <button className="w-full sm:w-auto px-10 py-5 bg-red-600 hover:bg-red-500 text-white font-black uppercase italic tracking-widest rounded-2xl transition-all shadow-2xl shadow-red-900/40 flex items-center justify-center gap-3 active:scale-95">
                                 Começar Grátis <ArrowRight size={20} />
                             </button>
                         </Link>
-                        <button className="w-full sm:w-auto px-10 py-5 bg-slate-900 border border-slate-800 text-white font-black uppercase text-xs tracking-widest rounded-2xl flex items-center justify-center gap-3 hover:bg-slate-800 transition">
+                        <button className="w-full sm:w-auto px-10 py-5 bg-slate-900 border border-white/5 text-white font-black uppercase text-xs tracking-widest rounded-2xl flex items-center justify-center gap-3 hover:bg-slate-800 transition active:scale-95">
                             <Play size={18} fill="white" /> Ver Demo
                         </button>
                     </div>
                 </div>
             </section>
 
-            {/* APP PREVIEW MOCKUP */}
+            {/* APP PREVIEW MOCKUP - REALISTIC TACTICAL INTERFACE */}
             <section className="max-w-5xl mx-auto px-6 mb-32 relative group">
-                <div className="absolute -inset-1 bg-linear-to-r from-red-600 to-blue-600 rounded-[2.5rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-                <div className="relative bg-slate-900 border border-white/10 rounded-[2.5rem] p-4 shadow-2xl overflow-hidden">
-                    <div className="bg-slate-950 rounded-[1.5rem] aspect-video flex items-center justify-center border border-white/5 relative overflow-hidden">
-                        <Target size={48} className="text-red-600/20 absolute animate-ping" />
-                        <div className="text-center z-10">
-                            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-500">Visual Tactical Interface</p>
-                            <div className="mt-4 flex gap-2 justify-center">
-                                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                            </div>
+                <div className="absolute -inset-1 bg-gradient-to-r from-red-600 to-blue-600 rounded-[3rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+
+                <div className="relative bg-slate-900 border border-white/10 rounded-[2.5rem] p-4 md:p-8 shadow-2xl overflow-hidden backdrop-blur-sm">
+                    {/* Toolbar Simulado */}
+                    <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
+                        <div className="flex gap-2">
+                            <div className="w-3 h-3 rounded-full bg-red-500/40" />
+                            <div className="w-3 h-3 rounded-full bg-slate-700" />
+                            <div className="w-3 h-3 rounded-full bg-slate-700" />
+                        </div>
+                        <div className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 italic">
+                            Visual Tactical Interface 2.0
+                        </div>
+                        <div className="bg-red-600/20 px-2 py-1 rounded text-[8px] text-red-500 font-black">LIVE</div>
+                    </div>
+
+                    {/* Preview do Campo de Padel */}
+                    <div className="aspect-video w-full bg-slate-950 rounded-2xl relative border border-white/5 overflow-hidden flex items-center justify-center shadow-inner group-hover:border-red-600/30 transition-colors">
+
+                        {/* PISO DO CAMPO */}
+                        <div className="w-[45%] h-[85%] bg-blue-700/80 rounded-sm relative border-2 border-white/30 shadow-2xl">
+                            {/* Linhas Brancas */}
+                            <div className="absolute top-1/2 left-0 w-full h-px bg-white/40" />
+                            <div className="absolute top-1/4 left-0 w-full h-px bg-white/20" />
+                            <div className="absolute bottom-1/4 left-0 w-full h-px bg-white/20" />
+                            <div className="absolute top-0 left-1/2 w-px h-full bg-white/20" />
+
+                            {/* JOGADORES - DOTS ANIMADOS */}
+                            {/* Equipa Vermelha (Ataque) */}
+                            <div className="absolute top-[15%] left-[20%] w-5 h-5 bg-red-600 rounded-full border-2 border-white shadow-xl animate-pulse" />
+                            <div className="absolute top-[18%] right-[25%] w-5 h-5 bg-red-600 rounded-full border-2 border-white shadow-xl animate-pulse" />
+
+                            {/* Equipa Azul (Defesa) */}
+                            <div className="absolute bottom-[20%] left-[30%] w-5 h-5 bg-blue-500 rounded-full border-2 border-white shadow-xl" />
+                            <div className="absolute bottom-[15%] right-[20%] w-5 h-5 bg-blue-500 rounded-full border-2 border-white shadow-xl" />
+
+                            {/* SETA TÁTICA SIMULADA (SVG) */}
+                            <svg className="absolute top-[25%] left-[25%] w-32 h-32 text-red-500/60" viewBox="0 0 100 100" fill="none">
+                                <path d="M10,10 Q50,5 80,40" stroke="currentColor" strokeWidth="3" strokeDasharray="5,5" />
+                                <polygon points="80,40 70,35 75,45" fill="currentColor" />
+                            </svg>
+                        </div>
+
+                        {/* OVERLAY DE TEXTO GRADIENTE */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent flex flex-col justify-end p-10">
+                            <h3 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-white">
+                                Controlo <span className="text-red-600">Estratégico</span> Total
+                            </h3>
+                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">
+                                Desenha jogadas vencedoras com fluidez absoluta.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -144,8 +186,10 @@ export default function Home() {
             </section>
 
             {/* PRICING SECTION */}
-            <section id="pricing" className="max-w-7xl mx-auto px-6 py-32 text-center scroll-mt-24">
-                <div className="mb-16">
+            <section id="pricing" className="max-w-7xl mx-auto px-6 py-32 text-center scroll-mt-24 relative">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-600/5 blur-[120px] rounded-full pointer-events-none -z-10" />
+
+                <div className="mb-20">
                     <h2 className="text-4xl md:text-5xl font-black uppercase italic mb-4 tracking-tighter text-white">
                         Planos de <span className="text-red-600">Alta Performance</span>
                     </h2>
@@ -154,25 +198,20 @@ export default function Home() {
                     </p>
                 </div>
 
-                {/* Grelha de 3 colunas para os teus novos planos */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-
-                    {/* PLANO FREE */}
                     <PriceCard
                         tier="Free"
                         price="0€"
                         features={[
-                            'Até 3 Táticas Ativas',
+                            'Até 5 Táticas Ativas',
                             'Acesso à Comunidade',
-                            'Exportação PNG Padrão',
-                            'Gestão Básica de Alunos'
+                            'Exportação PNG Padrão'
                         ]}
                     />
 
-                    {/* PLANO PRO COACH - O equilíbrio */}
                     <PriceCard
                         tier="Pro Coach"
-                        price="9.90€"
+                        price="7,99€"
                         features={[
                             'Táticas Ilimitadas',
                             'Biblioteca de Exercícios',
@@ -182,10 +221,9 @@ export default function Home() {
                         ]}
                     />
 
-                    {/* PLANO ELITE PERFORMANCE - O Destaque */}
                     <PriceCard
                         tier="Elite Performance"
-                        price="19.90€"
+                        price="14,99€"
                         featured={true}
                         features={[
                             'Tudo do Plano Pro',
@@ -195,20 +233,22 @@ export default function Home() {
                             'Suporte Prioritário 24/7'
                         ]}
                     />
-
                 </div>
             </section>
 
             {/* FOOTER */}
-            <footer className="mt-auto border-t border-white/5 py-12 px-6 bg-slate-950">
+            <footer className="border-t border-white/5 py-16 px-6 bg-slate-950 relative z-10">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
                     <div className="flex items-center gap-2">
+                        <div className="bg-slate-900 p-1.5 rounded-lg border border-white/5">
+                            <Shield size={16} className="text-red-600" />
+                        </div>
                         <span className="text-sm font-black italic uppercase tracking-tighter">
                             Next <span className="text-red-600">Level Coach</span>
                         </span>
                     </div>
-                    <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.2em]">
-                        © 2026 Next Level Coach.
+                    <p className="text-slate-600 text-[9px] font-black uppercase tracking-[0.4em]">
+                        © 2026 Next Level Coach
                     </p>
                 </div>
             </footer>
@@ -216,21 +256,21 @@ export default function Home() {
     );
 }
 
-// --- COMPONENTES AUXILIARES (FUNDAMENTAL) ---
+// --- COMPONENTES AUXILIARES ---
 
 function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
     return (
-        <div className="p-10 bg-slate-900/40 border border-white/5 rounded-[2rem] hover:border-red-500/30 transition-all group">
-            <div className="mb-6 group-hover:scale-110 transition-transform">{icon}</div>
+        <div className="p-10 bg-slate-900/40 border border-white/5 rounded-[2.5rem] hover:border-red-600/30 transition-all group hover:shadow-2xl hover:shadow-black/50">
+            <div className="mb-6 group-hover:scale-110 transition-transform duration-500">{icon}</div>
             <h3 className="text-xl font-black uppercase italic mb-3 tracking-tight">{title}</h3>
-            <p className="text-slate-500 text-sm leading-relaxed font-medium">{description}</p>
+            <p className="text-slate-500 text-sm leading-relaxed font-medium italic">"{description}"</p>
         </div>
     );
 }
 
 function PriceCard({ tier, price, features, featured = false }: { tier: string, price: string, features: string[], featured?: boolean }) {
     return (
-        <div className={`p-10 rounded-[2.5rem] border transition-all relative overflow-hidden ${featured ? 'bg-red-600 border-transparent shadow-2xl shadow-red-900/40 scale-105 z-10' : 'bg-slate-900 border-white/10'}`}>
+        <div className={`p-10 rounded-[2.5rem] border transition-all relative overflow-hidden flex flex-col h-full ${featured ? 'bg-red-600 border-transparent shadow-2xl shadow-red-900/40 scale-105 z-10' : 'bg-slate-900 border-white/10'}`}>
             {featured && (
                 <div className="absolute top-0 right-0 bg-white text-red-600 text-[8px] font-black uppercase px-4 py-1 rounded-bl-xl tracking-widest">
                     Recomendado
@@ -240,16 +280,16 @@ function PriceCard({ tier, price, features, featured = false }: { tier: string, 
             <div className="text-6xl font-black italic uppercase mb-10 tracking-tighter">
                 {price}<span className="text-xs font-normal not-italic opacity-60">/mês</span>
             </div>
-            <ul className="text-left space-y-4 mb-12 text-sm font-bold">
+            <ul className="text-left space-y-4 mb-12 text-[11px] font-bold uppercase tracking-wider flex-1">
                 {features.map((f: string) => (
                     <li key={f} className="flex items-center gap-3">
-                        <CheckCircle2 size={18} className={featured ? 'text-white' : 'text-red-600'} /> {f}
+                        <CheckCircle2 size={16} className={featured ? 'text-white' : 'text-red-600'} /> {f}
                     </li>
                 ))}
             </ul>
             <Link
                 href="/login"
-                className={`block w-full py-5 rounded-2xl font-black uppercase text-xs tracking-widest transition-all ${featured ? 'bg-white text-red-600 hover:bg-slate-100 shadow-xl' : 'bg-slate-800 text-white hover:bg-slate-700'}`}
+                className={`block w-full py-5 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all active:scale-95 ${featured ? 'bg-white text-red-600 hover:bg-slate-100 shadow-xl' : 'bg-slate-950 border border-white/5 text-white hover:bg-slate-800'}`}
             >
                 Selecionar Plano
             </Link>
