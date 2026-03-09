@@ -119,8 +119,8 @@ const Navbar = () => {
                     setIsCoach(false);
                     setIsAdmin(false);
                     setPlanTier('free');
-                    router.push('/login');
-                    router.refresh();
+
+                    window.location.href = '/login';
                 }
             }
         );
@@ -139,12 +139,12 @@ const Navbar = () => {
         } catch (err) {
             console.error('Erro logout:', err);
         } finally {
+            // Limpa os estados no React
             setUser(null);
             setIsCoach(false);
             setIsAdmin(false);
             setPlanTier('free');
-            router.push('/login');
-            router.refresh();
+            window.location.href = '/login';
         }
     };
 
