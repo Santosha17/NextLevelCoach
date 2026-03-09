@@ -1,99 +1,89 @@
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
-    // 1. Criar uma resposta inicial vazia e preparar headers
+    // 1. Criar a resposta inicial
     let response = NextResponse.next({
         request: {
             headers: request.headers,
         },
     });
 
-    try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-        if (!supabaseUrl || !supabaseKey) {
-            console.error("Middleware: Variáveis de ambiente Supabase em falta.");
-            return response;
-        }
+    if (!supabaseUrl || !supabaseKey) return response;
 
-        const supabase = createServerClient(
-            supabaseUrl,
-            supabaseKey,
-            {
-                cookies: {
-                    getAll() {
-                        return request.cookies.getAll();
-                    },
-                    setAll(cookiesToSet) {
-                        cookiesToSet.forEach(({ name, value }) =>
-                            request.cookies.set(name, value)
-                        );
-                        response = NextResponse.next({
-                            request,
-                        });
-                        cookiesToSet.forEach(({ name, value, options }) =>
-                            response.cookies.set(name, value, options)
-                        );
-                    },
+    // 2. Instanciar o cliente Supabase com a lógica correta de sincronização
+    const supabase = createServerClient(
+        supabaseUrl,
+        supabaseKey,
+        {
+            cookies: {
+                get(name: string) {
+                    return request.cookies.get(name)?.value;
                 },
-            }
-        );
-
-        // 2. Verificar o utilizador
-        const {
-            data: { user },
-            error,
-        } = await supabase.auth.getUser();
-
-        const path = request.nextUrl.pathname;
-
-        // 3. Proteção de Rotas
-
-        // Se NÃO estiver logado e tentar entrar em áreas privadas
-        if (!user && (path.startsWith("/dashboard") || path.startsWith("/admin"))) {
-            const url = request.nextUrl.clone();
-            url.pathname = "/login";
-            url.searchParams.set("next", path);
-
-            // Criar a resposta de redirecionamento
-            const redirectResponse = NextResponse.redirect(url);
-
-            // MAGIA AQUI: Copiar os cookies que o Supabase possa ter atualizado!
-            response.cookies.getAll().forEach((cookie) => {
-                redirectResponse.cookies.set(cookie.name, cookie.value);
-            });
-
-            return redirectResponse;
-        }
-
-        // Se ESTIVER logado e tentar ir para Login
-        if (user && path.startsWith("/login")) {
-            const url = request.nextUrl.clone();
-            url.pathname = "/dashboard";
-
-            // Criar a resposta de redirecionamento
-            const redirectResponse = NextResponse.redirect(url);
-
-            // MAGIA AQUI: Copiar os cookies que o Supabase possa ter atualizado!
-            response.cookies.getAll().forEach((cookie) => {
-                redirectResponse.cookies.set(cookie.name, cookie.value);
-            });
-
-            return redirectResponse;
-        }
-
-    } catch (e) {
-        console.error("Middleware Exception:", e);
-        return NextResponse.next({
-            request: {
-                headers: request.headers,
+                set(name: string, value: string, options: CookieOptions) {
+                    // Atualiza os cookies no pedido (para o Supabase ler de imediato)
+                    request.cookies.set({ name, value, ...options });
+                    // Atualiza os cookies na resposta (para o browser guardar)
+                    response = NextResponse.next({
+                        request: {
+                            headers: request.headers,
+                        },
+                    });
+                    response.cookies.set({ name, value, ...options });
+                },
+                remove(name: string, options: CookieOptions) {
+                    request.cookies.set({ name, value: "", ...options });
+                    response = NextResponse.next({
+                        request: {
+                            headers: request.headers,
+                        },
+                    });
+                    response.cookies.set({ name, value: "", ...options });
+                },
             },
+        }
+    );
+
+    // 3. Importante: refrescar a sessão (necessário para o F5 funcionar sempre)
+    // O getUser() é mais seguro que o getSession() no middleware.
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const path = request.nextUrl.pathname;
+
+    // 4. Proteção de Rotas com Redirecionamento Inteligente
+    if (!user && (path.startsWith("/dashboard") || path.startsWith("/admin"))) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/login";
+        url.searchParams.set("next", path);
+        return redirectWithCookies(request, url, response);
+    }
+
+    if (user && path.startsWith("/login")) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return redirectWithCookies(request, url, response);
+    }
+
+    return response;
+}
+
+// FUNÇÃO AUXILIAR: Garante que os cookies (Set-Cookie headers) são passados para o redirecionamento
+function redirectWithCookies(request: NextRequest, url: URL, response: NextResponse) {
+    const redirectResponse = NextResponse.redirect(url);
+
+    // Em vez de iterar pelos cookies, copiamos os headers 'set-cookie'
+    // Isto preserva flags como httpOnly, secure, maxAge, etc.
+    const setCookies = response.headers.getSetCookie();
+    if (setCookies.length > 0) {
+        setCookies.forEach((cookie) => {
+            redirectResponse.headers.append("set-cookie", cookie);
         });
     }
 
-    return response; // Se não houver redirect, devolve a resposta normal com os cookies corretos
+    return redirectResponse;
 }
 
 export const config = {
