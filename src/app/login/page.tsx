@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react'; // <--- Adicionei useEffect
-import { createClient } from '@/src/lib/supabase'; // <--- Garante que o import está certo
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@/src/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Lock, Mail, User, Shield, Loader2, ArrowLeft, Phone } from 'lucide-react';
+import { Lock, Mail, User, Shield, Loader2, ArrowLeft, Phone, Zap } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -12,31 +12,23 @@ export default function LoginPage() {
 
     const [isSignUp, setIsSignUp] = useState(false);
     const [loading, setLoading] = useState(false);
-    // Estado de verificação inicial para evitar "piscar" o form se já estiver logado
     const [checkingSession, setCheckingSession] = useState(true);
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-
     const [fullName, setFullName] = useState('');
     const [phone, setPhone] = useState('');
     const [role, setRole] = useState<'player' | 'coach'>('player');
     const [license, setLicense] = useState('');
 
-    // 1. VERIFICAÇÃO DE SEGURANÇA AO INICIAR
-    // Impede que users logados vejam o login (Rede de segurança do Middleware)
+    // 1. MANTÉM A TUA VERIFICAÇÃO DE SEGURANÇA
     useEffect(() => {
         const checkSession = async () => {
             try {
-                // USAR SEMPRE getUser() e não getSession() para evitar loops!
-                // O getUser valida o token com o servidor.
                 const { data: { user } } = await supabase.auth.getUser();
-
                 if (user) {
-                    // Se já estiver logado, manda para o dashboard
                     router.replace('/dashboard');
                 } else {
-                    // Se não estiver, mostra o formulário
                     setCheckingSession(false);
                 }
             } catch (error) {
@@ -46,13 +38,13 @@ export default function LoginPage() {
         checkSession();
     }, [router, supabase]);
 
+    // 2. MANTÉM A TUA LÓGICA DE AUTENTICAÇÃO ORIGINAL
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
         try {
             if (isSignUp) {
-                // ... (A tua lógica de registo mantém-se igual, está ótima)
                 if (!fullName.trim() || !phone.trim()) {
                     alert('Todos os campos são obrigatórios, incluindo o telemóvel.');
                     setLoading(false);
@@ -81,19 +73,14 @@ export default function LoginPage() {
                 });
 
                 if (error) throw error;
-
                 alert('Conta criada! Vai ao teu email e clica no link para confirmar.');
                 setIsSignUp(false);
             } else {
-                // LOGIN
-                const { data, error } = await supabase.auth.signInWithPassword({
+                const { error } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 });
-
                 if (error) throw error;
-
-                // Refresh é CRUCIAL para o Middleware apanhar o novo cookie
                 router.refresh();
                 router.push('/dashboard');
             }
@@ -104,67 +91,82 @@ export default function LoginPage() {
         }
     };
 
-    // Se estiver a verificar a sessão, mostra um loading bonito em vez do form
     if (checkingSession) {
         return (
-            <div className="min-h-screen bg-slate-900 flex items-center justify-center text-green-500">
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center text-red-600">
                 <Loader2 className="animate-spin w-10 h-10" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative">
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+            {/* Glow Background da Identidade Next Level Coach */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-red-600/10 blur-[120px] rounded-full pointer-events-none" />
+
+            {/* VOLTAR */}
             <Link
                 href="/"
-                className="absolute top-8 left-8 text-slate-400 hover:text-white flex items-center gap-2 transition"
+                className="absolute top-8 left-8 text-slate-500 hover:text-white flex items-center gap-2 transition-all font-black uppercase text-[10px] tracking-widest z-10"
             >
-                <ArrowLeft size={20} /> Voltar
+                <ArrowLeft size={16} /> Voltar
             </Link>
 
-            <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700 animate-in fade-in zoom-in duration-300">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-black text-white mb-2">Coach Next Level</h1>
-                    <p className="text-slate-400">
-                        {isSignUp ? 'Cria a tua conta profissional' : 'Bem-vindo de volta'}
+            {/* CARD PRINCIPAL */}
+            <div className="bg-slate-900/50 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-white/5 animate-in fade-in zoom-in duration-500 relative z-10">
+                <div className="text-center mb-10">
+                    <div className="inline-flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full text-red-500 text-[10px] font-black uppercase tracking-widest mb-6">
+                        <Zap size={10} fill="currentColor" /> {isSignUp ? 'Performance Registration' : 'Coach Access'}
+                    </div>
+
+                    {/* NOME DO PROJETO ATUALIZADO */}
+                    <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none mb-2">
+                        Next Level <span className="text-red-600">Coach</span>
+                    </h1>
+
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">
+                        {isSignUp ? 'Cria a tua conta profissional' : 'Bem-vindo ao teu centro tático'}
                     </p>
                 </div>
 
                 <form onSubmit={handleAuth} className="space-y-4">
                     {isSignUp && (
-                        <div className="space-y-4 animate-in slide-in-from-top-4">
+                        <div className="space-y-4 animate-in slide-in-from-top-4 duration-300">
+                            {/* NOME COMPLETO */}
                             <div className="relative">
-                                <User className="absolute left-3 top-3.5 text-slate-500" size={20} />
+                                <User className="absolute left-4 top-4 text-slate-600" size={18} />
                                 <input
                                     type="text"
                                     placeholder="Nome Completo"
                                     required={isSignUp}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
+                                    className="w-full bg-slate-950 border border-white/5 rounded-2xl py-4 pl-12 text-sm text-white focus:border-red-600 outline-none transition-all placeholder:text-slate-700 font-medium"
                                     value={fullName}
                                     onChange={(e) => setFullName(e.target.value)}
                                 />
                             </div>
 
+                            {/* TELEMÓVEL */}
                             <div className="relative">
-                                <Phone className="absolute left-3 top-3.5 text-slate-500" size={20} />
+                                <Phone className="absolute left-4 top-4 text-slate-600" size={18} />
                                 <input
                                     type="tel"
                                     placeholder="Telemóvel"
                                     required={isSignUp}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
+                                    className="w-full bg-slate-950 border border-white/5 rounded-2xl py-4 pl-12 text-sm text-white focus:border-red-600 outline-none transition-all placeholder:text-slate-700 font-medium"
                                     value={phone}
                                     onChange={(e) => setPhone(e.target.value)}
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 bg-slate-900 p-1 rounded-lg border border-slate-700">
+                            {/* SELETOR DE ROLE */}
+                            <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-white/5">
                                 <button
                                     type="button"
                                     onClick={() => setRole('player')}
-                                    className={`py-2 rounded-md text-sm font-bold transition ${
+                                    className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                                         role === 'player'
-                                            ? 'bg-slate-700 text-white shadow'
-                                            : 'text-slate-500 hover:text-white'
+                                            ? 'bg-slate-800 text-white shadow-xl'
+                                            : 'text-slate-600 hover:text-slate-400'
                                     }`}
                                 >
                                     Jogador
@@ -172,94 +174,98 @@ export default function LoginPage() {
                                 <button
                                     type="button"
                                     onClick={() => setRole('coach')}
-                                    className={`py-2 rounded-md text-sm font-bold transition ${
+                                    className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                                         role === 'coach'
-                                            ? 'bg-green-500 text-slate-900 shadow'
-                                            : 'text-slate-500 hover:text-white'
+                                            ? 'bg-red-600 text-white shadow-xl'
+                                            : 'text-slate-600 hover:text-slate-400'
                                     }`}
                                 >
                                     Treinador
                                 </button>
                             </div>
 
+                            {/* LICENÇA FPP (MANTIDO) */}
                             {role === 'coach' && (
-                                <div className="relative animate-in fade-in">
-                                    <Shield className="absolute left-3 top-3.5 text-green-500" size={20} />
+                                <div className="relative animate-in fade-in duration-300">
+                                    <Shield className="absolute left-4 top-4 text-red-500" size={18} />
                                     <input
                                         type="text"
                                         placeholder="Nº Licença FPP (Obrigatório)"
                                         required={role === 'coach'}
-                                        className="w-full bg-slate-900 border border-green-500/50 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
+                                        className="w-full bg-slate-950 border border-red-600/30 rounded-2xl py-4 pl-12 text-sm text-white focus:border-red-600 outline-none transition-all font-medium"
                                         value={license}
                                         onChange={(e) => setLicense(e.target.value)}
                                     />
-                                    <p className="text-[10px] text-slate-400 mt-1 ml-1">
-                                        *Necessário para comprovar certificação.
+                                    <p className="text-[10px] text-slate-600 mt-2 ml-1 font-bold italic uppercase tracking-wider">
+                                        * Necessário para comprovar certificação.
                                     </p>
                                 </div>
                             )}
                         </div>
                     )}
 
+                    {/* EMAIL */}
                     <div className="relative">
-                        <Mail className="absolute left-3 top-3.5 text-slate-500" size={20} />
+                        <Mail className="absolute left-4 top-4 text-slate-600" size={18} />
                         <input
                             type="email"
-                            placeholder="Email"
+                            placeholder="Email Profissional"
                             required
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
+                            className="w-full bg-slate-950 border border-white/5 rounded-2xl py-4 pl-12 text-sm text-white focus:border-red-600 outline-none transition-all placeholder:text-slate-700 font-medium"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                         />
                     </div>
 
+                    {/* PASSWORD */}
                     <div className="relative">
-                        <Lock className="absolute left-3 top-3.5 text-slate-500" size={20} />
+                        <Lock className="absolute left-4 top-4 text-slate-600" size={18} />
                         <input
                             type="password"
                             placeholder="Password"
                             required
                             minLength={6}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pl-10 text-white focus:border-green-500 outline-none transition"
+                            className="w-full bg-slate-950 border border-white/5 rounded-2xl py-4 pl-12 text-sm text-white focus:border-red-600 outline-none transition-all placeholder:text-slate-700 font-medium"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                         />
                     </div>
 
                     {!isSignUp && (
-                        <div className="flex justify-end">
+                        <div className="flex justify-end px-1">
                             <Link
                                 href="/forgot-password"
-                                className="text-xs text-green-500 hover:text-green-400 font-bold hover:underline transition"
+                                className="text-[10px] text-red-500 hover:text-red-400 font-black uppercase tracking-widest transition-all"
                             >
                                 Esqueceste-te da password?
                             </Link>
                         </div>
                     )}
 
+                    {/* BOTÃO DE SUBMIT */}
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-green-500 hover:bg-green-400 text-slate-900 font-bold py-3 rounded-lg transition flex justify-center items-center gap-2 shadow-lg shadow-green-500/20 disabled:opacity-70"
+                        className="w-full bg-red-600 hover:bg-red-500 text-white font-black uppercase italic tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl shadow-red-900/20 disabled:opacity-50 active:scale-[0.98] flex justify-center items-center gap-3"
                     >
                         {loading ? (
-                            <Loader2 className="animate-spin" />
+                            <Loader2 className="animate-spin" size={20} />
                         ) : isSignUp ? (
-                            'Criar Conta'
+                            'Registar no Next Level Coach'
                         ) : (
-                            'Entrar'
+                            'Autorizar Acesso'
                         )}
                     </button>
                 </form>
 
-                <div className="mt-6 text-center text-sm">
-                    <p className="text-slate-400">
+                <div className="mt-8 text-center border-t border-white/5 pt-6">
+                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.1em]">
                         {isSignUp ? 'Já tens conta?' : 'Ainda não tens conta?'}
                         <button
                             onClick={() => setIsSignUp(!isSignUp)}
-                            className="ml-2 text-green-400 hover:text-green-300 font-bold underline transition"
+                            className="ml-2 text-red-500 hover:text-red-400 underline transition-all font-black"
                         >
-                            {isSignUp ? 'Faz Login' : 'Regista-te grátis'}
+                            {isSignUp ? 'Faz Login' : 'Cria conta agora'}
                         </button>
                     </p>
                 </div>

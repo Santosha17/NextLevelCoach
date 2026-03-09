@@ -1,6 +1,5 @@
 'use client';
 
-// 1. Importar useMemo
 import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
@@ -15,14 +14,12 @@ import {
     Users,
     MessageCircle,
     Shield,
+    Zap,
 } from 'lucide-react';
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 const Navbar = () => {
-    // 2. CORREÇÃO CRUCIAL: Usar useMemo para impedir o loop infinito
-    // Isto garante que o cliente Supabase é criado apenas UMA vez
     const supabase = useMemo(() => createClient(), []);
-
     const router = useRouter();
     const pathname = usePathname();
 
@@ -37,21 +34,18 @@ const Navbar = () => {
         const v = raw.toLowerCase();
         if (v === 'pro') return 'pro';
         if (v === 'elite') return 'elite';
-        if (v === 'free') return 'free';
-        return 'other';
+        return 'free';
     };
 
     const getPlanBadgeClasses = (tier: 'free' | 'pro' | 'elite' | 'other') => {
         switch (tier) {
             case 'pro':
-                return 'bg-indigo-500/15 text-indigo-300 border-indigo-500/40';
+                return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
             case 'elite':
-                return 'bg-amber-400/15 text-amber-300 border-amber-400/40';
-            case 'other':
-                return 'bg-slate-500/15 text-slate-300 border-slate-500/40';
+                return 'bg-red-600/10 text-red-500 border-red-600/20';
             case 'free':
             default:
-                return 'bg-slate-700 text-slate-300 border-slate-500/60';
+                return 'bg-slate-800 text-slate-400 border-white/5';
         }
     };
 
@@ -61,67 +55,38 @@ const Navbar = () => {
         const loadProfileFromSession = async (session: Session | null) => {
             if (!session?.user) {
                 if (!isMounted) return;
-                setUser(null);
-                setIsCoach(false);
-                setIsAdmin(false);
-                setPlanTier('free');
+                setUser(null); setIsCoach(false); setIsAdmin(false); setPlanTier('free');
                 return;
             }
 
             if (!isMounted) return;
             setUser(session.user);
 
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('profiles')
                 .select('role, plan_tier, is_admin')
                 .eq('id', session.user.id)
                 .maybeSingle();
 
-            if (!isMounted) return;
+            if (!isMounted || !data) return;
 
-            if (error) {
-                console.error('Erro a carregar perfil:', error);
-                setIsCoach(false);
-                setIsAdmin(false);
-                setPlanTier('free');
-                return;
-            }
-
-            const profile = data as {
-                role?: string | null;
-                plan_tier?: string | null;
-                is_admin?: boolean | null
-            };
-
-            setIsCoach(profile.role === 'coach');
-            setIsAdmin(profile.is_admin === true);
-            setPlanTier(mapPlanTier(profile.plan_tier));
+            setIsCoach(data.role === 'coach');
+            setIsAdmin(data.is_admin === true);
+            setPlanTier(mapPlanTier(data.plan_tier));
         };
 
         const checkUser = async () => {
-            const {
-                data: { session },
-            } = await supabase.auth.getSession();
+            const { data: { session } } = await supabase.auth.getSession();
             await loadProfileFromSession(session);
         };
 
         checkUser();
 
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange(
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (_event: AuthChangeEvent, session: Session | null) => {
                 if (!isMounted) return;
                 await loadProfileFromSession(session);
-
-                if (_event === 'SIGNED_OUT') {
-                    setUser(null);
-                    setIsCoach(false);
-                    setIsAdmin(false);
-                    setPlanTier('free');
-
-                    window.location.href = '/login';
-                }
+                if (_event === 'SIGNED_OUT') window.location.href = '/login';
             }
         );
 
@@ -129,218 +94,124 @@ const Navbar = () => {
             isMounted = false;
             subscription.unsubscribe();
         };
-    }, [supabase, router]); // Agora 'supabase' é estável e não causa loop
+    }, [supabase]);
 
     const handleLogout = async () => {
         try {
-            setIsMobileMenuOpen(false);
-            const { error } = await supabase.auth.signOut();
-            if (error) console.error('Erro logout:', error);
-        } catch (err) {
-            console.error('Erro logout:', err);
-        } finally {
-            // Limpa os estados no React
-            setUser(null);
-            setIsCoach(false);
-            setIsAdmin(false);
-            setPlanTier('free');
+            await supabase.auth.signOut();
             window.location.href = '/login';
+        } catch (err) {
+            console.error(err);
         }
     };
 
-    const planLabel =
-        planTier === 'free'
-            ? 'FREE'
-            : planTier === 'pro'
-                ? 'PRO'
-                : planTier === 'elite'
-                    ? 'ELITE'
-                    : 'PLANO';
-
     return (
-        <nav className="sticky top-0 z-50 w-full bg-slate-900 border-b border-slate-800">
-            <div className="w-full px-6 md:px-10 py-4 flex justify-between items-center">
-                <Link href="/" className="hover:opacity-80 transition z-50">
-                    <div className="font-black text-xl tracking-tighter italic text-white flex items-center gap-2 cursor-pointer">
-                        NEXT LEVEL COACH
+        <nav className="sticky top-0 z-[100] w-full bg-slate-950/80 backdrop-blur-md border-b border-white/5">
+            <div className="max-w-7xl mx-auto px-6 md:px-8 py-4 flex justify-between items-center">
+
+                {/* LOGO */}
+                <Link href="/" className="hover:opacity-80 transition group">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-red-600 p-1 rounded shadow-lg shadow-red-900/20 group-hover:scale-110 transition-transform">
+                            <Shield size={18} className="text-white fill-white/10" />
+                        </div>
+                        <span className="font-black text-lg tracking-tighter italic text-white uppercase">
+                            Next Level <span className="text-red-600 font-black">Coach</span>
+                        </span>
                     </div>
                 </Link>
 
+                {/* DESKTOP NAV */}
                 {user && (
-                    <div className="hidden md:flex gap-8 text-sm font-bold text-slate-400 items-center">
-                        <Link
-                            href="/dashboard"
-                            className={`hover:text-white transition flex items-center gap-2 ${
-                                pathname === '/dashboard' ? 'text-green-500' : ''
-                            }`}
-                        >
-                            <LayoutDashboard size={16} /> Dashboard
-                        </Link>
+                    <div className="hidden md:flex gap-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 items-center">
+                        <NavLink href="/dashboard" active={pathname === '/dashboard'} icon={<LayoutDashboard size={14}/>}>Dashboard</NavLink>
 
                         {isAdmin && (
-                            <Link
-                                href="/admin"
-                                className={`hover:text-red-400 transition flex items-center gap-2 ${
-                                    pathname.startsWith('/admin') ? 'text-red-500' : ''
-                                }`}
-                            >
-                                <Shield size={16} /> Backoffice
-                            </Link>
+                            <NavLink href="/admin" active={pathname.startsWith('/admin')} icon={<Shield size={14}/>} variant="admin">Backoffice</NavLink>
                         )}
 
-                        <Link
-                            href="/comunidade"
-                            className={`hover:text-white transition flex items-center gap-2 ${
-                                pathname === '/comunidade' ? 'text-green-500' : ''
-                            }`}
-                        >
-                            <MessageCircle size={16} /> Comunidade
-                        </Link>
+                        <NavLink href="/comunidade" active={pathname === '/comunidade'} icon={<MessageCircle size={14}/>}>Comunidade</NavLink>
+
                         {isCoach && (
                             <>
-                                <Link
-                                    href="/dashboard/planos"
-                                    className={`hover:text-white transition flex items-center gap-2 ${
-                                        pathname === '/dashboard/planos' ? 'text-green-500' : ''
-                                    }`}
-                                >
-                                    <Layers size={16} /> Planos
-                                </Link>
-                                <Link
-                                    href="/dashboard/alunos"
-                                    className={`hover:text-white transition flex items-center gap-2 ${
-                                        pathname === '/dashboard/alunos' ? 'text-green-500' : ''
-                                    }`}
-                                >
-                                    <Users size={16} /> Alunos
-                                </Link>
+                                <NavLink href="/dashboard/planos" active={pathname === '/dashboard/planos'} icon={<Layers size={14}/>}>Planos</NavLink>
+                                <NavLink href="/dashboard/alunos" active={pathname === '/dashboard/alunos'} icon={<Users size={14}/>}>Alunos</NavLink>
                             </>
                         )}
                     </div>
                 )}
 
+                {/* USER AREA */}
                 <div className="flex items-center gap-4">
                     {user ? (
                         <div className="flex items-center gap-4">
-                            {/* Tornei esta área clicável para ir ao perfil */}
-                            <Link href="/dashboard/perfil" className="hidden sm:flex flex-col items-end cursor-pointer group">
-                                <span className="text-white text-sm font-bold leading-tight group-hover:text-green-400 transition">
-                                    {user.user_metadata?.full_name || 'Utilizador'}
+                            <Link href="/dashboard/perfil" className="hidden sm:flex flex-col items-end group cursor-pointer">
+                                <span className="text-white text-[11px] font-black uppercase tracking-wider group-hover:text-red-500 transition">
+                                    {user.user_metadata?.full_name?.split(' ')[0] || 'User'}
                                 </span>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-green-500 text-[10px] uppercase font-black tracking-widest text-right">
+                                    <span className="text-red-600 text-[8px] font-black tracking-widest uppercase italic">
                                         {isCoach ? 'TREINADOR' : 'JOGADOR'}
                                     </span>
-                                    {isAdmin && (
-                                        <span className="text-red-500 text-[10px] uppercase font-black tracking-widest text-right border border-red-500/30 px-1 rounded bg-red-500/10">
-                                            ADMIN
-                                        </span>
-                                    )}
-                                    <span
-                                        className={`text-[9px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full border ${getPlanBadgeClasses(
-                                            planTier
-                                        )}`}
-                                    >
-                                        {planLabel}
+                                    <span className={`text-[8px] font-black tracking-[0.2em] px-2 py-0.5 rounded border ${getPlanBadgeClasses(planTier)}`}>
+                                        {planTier.toUpperCase()}
                                     </span>
                                 </div>
                             </Link>
 
                             <button
                                 onClick={handleLogout}
-                                title="Sair da conta"
-                                className="p-2 bg-slate-800 text-slate-400 rounded-lg border border-slate-700 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/50 transition"
+                                className="p-2.5 bg-slate-900 text-slate-500 rounded-xl border border-white/5 hover:bg-red-600/10 hover:text-red-500 hover:border-red-600/20 transition-all active:scale-95"
                             >
-                                <LogOut size={18} />
+                                <LogOut size={16} />
                             </button>
                         </div>
                     ) : (
-                        <Link href="/login" className="hidden sm:block">
-                            <button className="flex items-center gap-2 px-4 py-2 bg-green-500 text-slate-900 rounded-lg font-bold hover:bg-green-400 transition shadow-lg shadow-green-500/20">
-                                <UserCircle size={18} />
-                                <span>Entrar</span>
+                        <Link href="/login">
+                            <button className="bg-white text-slate-950 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-lg shadow-white/5 active:scale-95">
+                                Entrar
                             </button>
                         </Link>
                     )}
+
+                    {/* MOBILE TOGGLE */}
                     <button
-                        className="md:hidden p-2 text-slate-300 hover:text-white transition"
+                        className="md:hidden p-2 text-slate-400 hover:text-white transition"
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                     >
-                        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                        {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
                     </button>
                 </div>
             </div>
 
+            {/* MOBILE MENU */}
             {isMobileMenuOpen && (
-                <div className="md:hidden absolute top-full left-0 w-full bg-slate-900 border-b border-slate-800 shadow-2xl animate-in slide-in-from-top-5">
-                    <div className="flex flex-col p-4 space-y-2">
+                <div className="md:hidden absolute top-full left-0 w-full bg-slate-950 border-b border-white/5 shadow-2xl animate-in slide-in-from-top-5">
+                    <div className="flex flex-col p-6 space-y-3">
                         {user ? (
                             <>
-                                <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                    Menu {isCoach ? 'Treinador' : 'Jogador'} · Plano {planLabel}
-                                </div>
-                                <MobileLink
-                                    href="/dashboard"
-                                    icon={<LayoutDashboard size={18} />}
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    Dashboard
-                                </MobileLink>
-
+                                <MobileNavLink href="/dashboard" icon={<LayoutDashboard size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>Dashboard</MobileNavLink>
                                 {isAdmin && (
-                                    <MobileLink
-                                        href="/admin"
-                                        icon={<Shield size={18} className="text-red-500" />}
-                                        onClick={() => setIsMobileMenuOpen(false)}
-                                    >
-                                        <span className="text-red-400 font-bold">Backoffice</span>
-                                    </MobileLink>
+                                    <MobileNavLink href="/admin" icon={<Shield size={18}/>} onClick={() => setIsMobileMenuOpen(false)} variant="admin">Backoffice</MobileNavLink>
                                 )}
-
-                                <MobileLink
-                                    href="/comunidade"
-                                    icon={<MessageCircle size={18} />}
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    Comunidade
-                                </MobileLink>
+                                <MobileNavLink href="/comunidade" icon={<MessageCircle size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>Comunidade</MobileNavLink>
                                 {isCoach && (
                                     <>
-                                        <MobileLink
-                                            href="/dashboard/planos"
-                                            icon={<Layers size={18} />}
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            Planos de Aula
-                                        </MobileLink>
-                                        <MobileLink
-                                            href="/dashboard/alunos"
-                                            icon={<Users size={18} />}
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            Meus Alunos
-                                        </MobileLink>
+                                        <MobileNavLink href="/dashboard/planos" icon={<Layers size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>Planos de Aula</MobileNavLink>
+                                        <MobileNavLink href="/dashboard/alunos" icon={<Users size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>Alunos</MobileNavLink>
                                     </>
                                 )}
-
-                                <MobileLink href="/dashboard/perfil" icon={<UserCircle size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>
-                                    O Meu Perfil
-                                </MobileLink>
-
+                                <MobileNavLink href="/dashboard/perfil" icon={<UserCircle size={18}/>} onClick={() => setIsMobileMenuOpen(false)}>Perfil</MobileNavLink>
                                 <button
                                     onClick={handleLogout}
-                                    className="w-full text-left p-3 rounded-lg hover:bg-red-500/10 text-red-400 font-bold flex items-center gap-3 mt-4 border border-transparent hover:border-red-500/20 transition"
+                                    className="w-full text-left p-4 rounded-2xl bg-red-600/10 text-red-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 mt-4"
                                 >
-                                    <LogOut size={18} /> Sair da Conta
+                                    <LogOut size={18} /> Sair da Sessão
                                 </button>
                             </>
                         ) : (
-                            <Link
-                                href="/login"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                                className="p-3 rounded-lg bg-green-500 text-slate-900 font-bold flex justify-center items-center gap-2"
-                            >
-                                <UserCircle size={18} /> Entrar na Conta
+                            <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-4 rounded-2xl bg-red-600 text-white text-[10px] font-black uppercase tracking-widest text-center">
+                                Entrar na Conta
                             </Link>
                         )}
                     </div>
@@ -350,21 +221,29 @@ const Navbar = () => {
     );
 };
 
-const MobileLink = ({
-                        href,
-                        children,
-                        icon,
-                        onClick,
-                    }: {
-    href: string;
-    children: React.ReactNode;
-    icon: React.ReactNode;
-    onClick?: () => void;
-}) => (
+// COMPONENTES AUXILIARES DE ESTILO
+const NavLink = ({ href, children, active, icon, variant }: any) => (
+    <Link
+        href={href}
+        className={`flex items-center gap-2 transition-all hover:text-white ${
+            active
+                ? (variant === 'admin' ? 'text-red-500' : 'text-white')
+                : (variant === 'admin' ? 'text-red-400/60' : 'text-slate-500')
+        }`}
+    >
+        {icon}
+        {children}
+        {active && <span className={`w-1 h-1 rounded-full ${variant === 'admin' ? 'bg-red-500' : 'bg-red-600'}`} />}
+    </Link>
+);
+
+const MobileNavLink = ({ href, children, icon, onClick, variant }: any) => (
     <Link
         href={href}
         onClick={onClick}
-        className="p-3 rounded-lg hover:bg-slate-800 text-slate-200 font-medium flex items-center gap-3 transition border border-transparent hover:border-slate-700"
+        className={`p-4 rounded-2xl flex items-center gap-3 text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all active:scale-95 ${
+            variant === 'admin' ? 'bg-red-600/5 text-red-500 border-red-500/10' : 'bg-slate-900 text-slate-300'
+        }`}
     >
         {icon} {children}
     </Link>
