@@ -251,9 +251,9 @@ export default function LoginPage() {
                         {loading ? (
                             <Loader2 className="animate-spin" size={20} />
                         ) : isSignUp ? (
-                            'Registar no Next Level Coach'
+                            'Registar'
                         ) : (
-                            'Autorizar Acesso'
+                            'Iniciar Sessão'
                         )}
                     </button>
                 </form>
